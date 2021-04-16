@@ -14,7 +14,7 @@
 #include "lwip/sockets.h"
 #include "lwip/dns.h"
 #include "lwip/netdb.h"
-#include "/home/ubuntu/esp/esp-idf/examples/common_components/protocol_examples_common/include/protocol_examples_common.h"
+//#include "/home/ubuntu/esp/esp-idf/examples/common_components/protocol_examples_common/include/protocol_examples_common.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -25,7 +25,7 @@
 
 #include "freertos/task.h"
 
-extern void provisionamiento(void);
+extern void provisioning(void);
 extern void redireccionaLogs(void);
 
 static const char *TAG = "main";
@@ -33,7 +33,7 @@ static const char *TAG = "main";
 void app_main(void)
 {   
     //Montamos una partición spiflash y redireccionamos los logs allí
-    //esp_log_level_set("*", ESP_LOG_WARN);
+    //esp_log_level_set("*", ESP_LOG_ERROR);
     //redireccionaLogs();
 
     // Configuramos el gestor de energia
@@ -58,9 +58,9 @@ void app_main(void)
     //Conectamos al WIFI
     //ESP_ERROR_CHECK(example_connect());
 
-    //Provisionamiento
+    //wifi provisioning
     ESP_LOGI(TAG, "Starting WiFi SoftAP provisioning");
-    provisionamiento();
+    provisioning();
     
     
     vTaskSuspend(NULL);

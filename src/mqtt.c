@@ -20,20 +20,19 @@ extern const uint8_t mqtt_eclipse_org_pem_start[]   asm("_binary_mqtt_eclipse_or
 extern const uint8_t mqtt_eclipse_org_pem_end[]   asm("_binary_mqtt_eclipse_org_pem_end");
 
 
-extern void inicializarTimerSensorTemperaturaYHumedad();
-extern void inicializarTimerSensorCO2(void);
-extern void activarTimerSensorTemp();
-extern void activarTimerSensorCO2();
-extern void pararTimerSensorTemp();
-extern void pararTimerSensorCO2();
+// extern void inicializarTimerSensorTemperaturaYHumedad();
+// extern void inicializarTimerSensorCO2(void);
+// extern void activarTimerSensorTemp();
+// extern void activarTimerSensorCO2();
+// extern void pararTimerSensorTemp();
+// extern void pararTimerSensorCO2();
 extern void start_server_http();
-extern void modificaSampleFreqCO2(int result);
-extern void modificaSendFreqCO2(int result);
-extern void modificaNSamplesCO2(int result);
-extern void modificaSampleFreqTemp(int result);
-extern void modificaSendFreqTemp(int result);
-extern void modificaNSamplesTemp(int result);
-extern void iniciarBLE(void);
+// extern void modificaSampleFreqCO2(int result);
+// extern void modificaSendFreqCO2(int result);
+// extern void modificaNSamplesCO2(int result);
+// extern void modificaSampleFreqTemp(int result);
+// extern void modificaSendFreqTemp(int result);
+// extern void modificaNSamplesTemp(int result);
 extern void modificaScanFreq(int scan_freq);
 extern void modificaTimeScan(int time_scan);
 
@@ -46,24 +45,27 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
 
             if (primeraConexion){
-                /*Inicializamos los buses I2c e iniciamos los timers de lectura y envio*/
-                /*Iniciamos el BLE y el server HTTP*/
+                /*Iniciamos los timers de lectura y envio*/
+                /*Iniciamos el server HTTP*/
                 start_server_http();
                 vTaskDelay(pdMS_TO_TICKS(1000));
-                iniciarBLE();
-                inicializarTimerSensorTemperaturaYHumedad();
-                inicializarTimerSensorCO2();
+
+                //inicializarTimerSensorTemperaturaYHumedad();
+                //inicializarTimerSensorCO2();
+
                 primeraConexion = false;
-                esp_mqtt_client_subscribe(client, TOPIC_SAMPLE_FREQ_CO2, 1);
-                esp_mqtt_client_subscribe(client, TOPIC_SEND_FREQ_CO2, 1);
-                esp_mqtt_client_subscribe(client, TOPIC_N_SAMPLES_CO2, 1);
-                esp_mqtt_client_subscribe(client, TOPIC_SAMPLE_FREQ_TEMP, 1);
-                esp_mqtt_client_subscribe(client, TOPIC_SEND_FREQ_TEMP, 1);
-                esp_mqtt_client_subscribe(client, TOPIC_N_SAMPLES_TEMP, 1);
+
+                esp_mqtt_client_subscribe(client, TOPIC_SAMPLE_FREQ_IRRADIATION, 1);
+                esp_mqtt_client_subscribe(client, TOPIC_SEND_FREQ_IRRADIATION, 1);
+                esp_mqtt_client_subscribe(client, TOPIC_N_SAMPLES_IRRADIATION, 1);
+
+                esp_mqtt_client_subscribe(client, TOPIC_SAMPLE_FREQ_BATTERY_LEVEL, 1);
+                esp_mqtt_client_subscribe(client, TOPIC_SEND_FREQ_BATTERY_LEVEL, 1);
+                esp_mqtt_client_subscribe(client, TOPIC_N_SAMPLES_BATTERY_LEVEL, 1);
             } else{
                 /*Activamos los timers de envio de los sensores*/
-                activarTimerSensorTemp();
-                activarTimerSensorCO2();
+                //activarTimerSensorTemp();
+                //activarTimerSensorCO2();
             }
             
 
@@ -71,8 +73,8 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
             /*Paramos los envios de los datos de los sensores*/
-            pararTimerSensorCO2();
-            pararTimerSensorTemp();
+            // pararTimerSensorCO2();
+            // pararTimerSensorTemp();
             break;
 
         case MQTT_EVENT_SUBSCRIBED:
@@ -87,47 +89,38 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_DATA:
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
             event->data[event->data_len] = '\0'; //Necesario para que no sea el buffer más grande y añada 0 que no queremos al usar atoi()
-            if (strstr(event->topic, "SAMPLE_FREQ") != NULL) {
-                if (strstr(event->topic, "TEMP")){
-                    modificaSampleFreqTemp(atoi(event->data));
-                    ESP_LOGI(TAG, "Recibido un cambio de SAMPLE_FREQ a %d segundos para TEMP.", atoi(event->data));
-                } else if (strstr(event->topic, "CO2")){
-                    modificaSampleFreqCO2(atoi(event->data));
-                    ESP_LOGI(TAG, "Recibido un cambio de SAMPLE_FREQ a %d segundos para CO2.", atoi(event->data));
+            if (strstr(event->topic, "sample_frequency") != NULL) {
+                if (strstr(event->topic, "irradiation")){
+                    //modificaSampleFreqTemp(atoi(event->data));
+                    ESP_LOGI(TAG, "Recibido un cambio de sample_frequency a %d segundos para irradiation.", atoi(event->data));
+                } else if (strstr(event->topic, "battery_level")){
+                    //modificaSampleFreqCO2(atoi(event->data));
+                    ESP_LOGI(TAG, "Recibido un cambio de sample_frequency a %d segundos para battery_level.", atoi(event->data));
                 }
-            } else if (strstr(event->topic, "SEND_FREQ")){
-                if (strstr(event->topic, "TEMP")){
-                    modificaSendFreqTemp(atoi(event->data));
-                    ESP_LOGI(TAG, "Recibido un cambio de SEND_FREQ a %d para TEMP.", atoi(event->data));
-                } else if (strstr(event->topic, "CO2")){
-                    modificaSendFreqCO2(atoi(event->data));
-                    ESP_LOGI(TAG, "Recibido un cambio de SEND_FREQ a %d para CO2.", atoi(event->data));
+            } else if (strstr(event->topic, "send_frequency")){
+                if (strstr(event->topic, "irradiation")){
+                    //modificaSendFreqTemp(atoi(event->data));
+                    ESP_LOGI(TAG, "Recibido un cambio de send_frequency a %d para irradiation.", atoi(event->data));
+                } else if (strstr(event->topic, "battery_level")){
+                    //modificaSendFreqCO2(atoi(event->data));
+                    ESP_LOGI(TAG, "Recibido un cambio de send_frequency a %d para battery_level.", atoi(event->data));
                 }
-            } else if (strstr(event->topic, "N_SAMPLES")){
-                if (strstr(event->topic, "TEMP")){
-                    modificaNSamplesTemp(atoi(event->data));
-                    ESP_LOGI(TAG, "Recibido un cambio de N_SAMPLES a %d para TEMP.", atoi(event->data));
-                } else if (strstr(event->topic, "CO2")){
-                    modificaNSamplesCO2(atoi(event->data));
-                    ESP_LOGI(TAG, "Recibido un cambio de N_SAMPLES a %d para CO2.", atoi(event->data));
-                }
-            } else if (strstr(event->topic, "AFORO")){
-                if (strstr(event->topic, "TIME_SCAN")){
-                    modificaTimeScan(atoi(event->data));
-                    ESP_LOGI(TAG, "Recibido un cambio de TIME_SCAN a %d.", atoi(event->data));
-                } else if (strstr(event->topic, "FREQ_SCAN")){
-                    modificaScanFreq(atoi(event->data));
-                    ESP_LOGI(TAG, "Recibido un cambio de FREQ_SCAN a %d.", atoi(event->data));
+            } else if (strstr(event->topic, "sample_number")){
+                if (strstr(event->topic, "irradiation")){
+                    //modificaNSamplesTemp(atoi(event->data));
+                    ESP_LOGI(TAG, "Recibido un cambio de sample_number a %d para irradiation.", atoi(event->data));
+                } else if (strstr(event->topic, "battery_level")){
+                    //modificaNSamplesCO2(atoi(event->data));
+                    ESP_LOGI(TAG, "Recibido un cambio de sample_number a %d para battery_level.", atoi(event->data));
                 }
             }
-
             //printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
             //printf("DATA=%.*s\r\n", event->data_len, event->data);
 
             break;
         case MQTT_EVENT_ERROR:
             ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
-            printf("DATA=%.*s\r\n", event->data_len, event->data);
+            //printf("DATA=%.*s\r\n", event->data_len, event->data);
             break;
         default:
             ESP_LOGI(TAG, "Other event id:%d", event->event_id);

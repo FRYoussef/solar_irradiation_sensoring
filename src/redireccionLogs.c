@@ -57,18 +57,18 @@ static void timer_callback_logs(void * args){
     //Cambio la salida a la estandar
     esp_log_set_vprintf(default_vprintf);
 
-    printf("Cierro el fichero\n");
+    //printf("Cierro el fichero\n");
     //Cierro el fichero abierto para escritura
     fclose(f);
 
     // Open file for reading
-    printf("Abrimos el fichero para lectura\n");
+    //printf("Abrimos el fichero para lectura\n");
     f = fopen("/spiflash/logswarn.txt", "rb");
     if (f == NULL) {
         printf("Failed to open file for reading");
         return;
     }
-    printf("Leemos las 5 primeras lineas\n");
+    //printf("Leemos las 5 primeras lineas\n");
     for(int i = 0; i < 5; i++){
         char line[128];
         fgets(line, sizeof(line), f);
@@ -77,7 +77,7 @@ static void timer_callback_logs(void * args){
         if (pos) {
             *pos = '\0';
         }
-        printf("Read from file: '%s'\n", line);
+        //printf("Read from file: '%s'\n", line);
     }
 
     fclose(f);
@@ -101,7 +101,7 @@ void redireccionaLogs(){
         return;
     }
 
-    printf("Redireccionamos los logs\n");
+    //printf("Redireccionamos los logs\n");
     default_vprintf = esp_log_set_vprintf(&_log_vprintf);
 
     //Creamos un timer para dentro de 30 segundos, para salir de la redirección de logs

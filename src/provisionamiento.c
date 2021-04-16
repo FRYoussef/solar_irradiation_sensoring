@@ -101,7 +101,7 @@ static void start_softap_provisioning(void)
         ssid, CONFIG_EXAMPLE_PASS, security, pop));
 }
 
-void provisionamiento(void)
+void provisioning(void)
 {
     /* Initialize Wi-Fi including netif with default config */
     esp_netif_create_default_wifi_sta();
