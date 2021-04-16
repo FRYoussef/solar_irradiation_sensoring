@@ -1,0 +1,275 @@
+menu "Example Configuration"
+
+    menu "I2C Master"
+
+        menu "Temperatura y humedad"
+            config I2C_MASTER_SCL_TEMP
+                int "SCL GPIO Num"
+                default 19
+                help
+                    GPIO number for I2C Master clock line.
+
+            config I2C_MASTER_SDA_TEMP
+                int "SDA GPIO Num"
+                default 18
+                help
+                    GPIO number for I2C Master data line.
+
+            config I2C_MASTER_PORT_NUM_TEMP
+                int "Port Number"
+                default 0
+                help
+                    Port number for I2C Master device.
+
+            config I2C_MASTER_FREQUENCY_TEMP
+                int "Master Frequency"
+                default 100000
+                help
+                    I2C Speed of Master device.
+        endmenu
+
+        menu "CO2"
+            config I2C_MASTER_SCL_CO2
+                int "SCL GPIO Num"
+                default 23
+                help
+                    GPIO number for I2C Master clock line.
+
+            config I2C_MASTER_SDA_CO2
+                int "SDA GPIO Num"
+                default 22
+                help
+                    GPIO number for I2C Master data line.
+
+            config I2C_MASTER_PORT_NUM_CO2
+                int "Port Number"
+                default 1
+                help
+                    Port number for I2C Master device.
+
+            config I2C_MASTER_FREQUENCY_CO2
+                int "Master Frequency"
+                default 100000
+                help
+                    I2C Speed of Master device.
+        endmenu
+    endmenu
+
+    
+    menu "Broker"
+
+        config BROKER_URL
+        string "Broker URL"
+        default "mqtt://192.168.1.52"
+        help
+            URL of the broker to connect to
+
+        config BROKER_URL_FROM_STDIN
+            bool
+            default y if BROKER_URL = "FROM_STDIN"
+    endmenu
+
+    
+    menu "Sensorizacion"
+        menu "TEmperatura y humedad"
+            config SAMPLE_FREQ_TEMP
+                int "sample frequency temp"
+                default 2
+                help
+                    sample frequency in seconds
+            
+            config SEND_FREQ_TEMP
+                int "send frequency temp"
+                default 10
+                help
+                    send frequency in seconds
+
+            config N_SAMPLES_TEMP
+                int "n samples temp"
+                default 10
+                help
+                    numero de mediciones para generar una muestra con su media
+
+            config WINDOW_SIZE_TEMP
+                int "window size temp"
+                default 10
+                help
+                    window size
+        endmenu
+
+        menu "CO2"
+                config SAMPLE_FREQ_CO2
+                int "sample frequency temp"
+                default 2
+                help
+                    sample frequency in seconds
+            
+            config SEND_FREQ_CO2
+                int "send frequency temp"
+                default 10
+                help
+                    send frequency in seconds
+
+            config N_SAMPLES_CO2
+                int "n samples temp"
+                default 10
+                help
+                    numero de mediciones para generar una muestra con su media
+
+            config WINDOW_SIZE_CO2
+                int "window size temp"
+                default 10
+                help
+                    window size
+        endmenu
+              
+    endmenu
+
+    menu "Provisioning"
+
+        config EXAMPLE_SSID_SET_MAC
+            bool "Use MAC as SSID"
+            default y
+            help
+                Set SoftAP SSID as PROV_<MAC>.
+
+        config EXAMPLE_SSID
+            string "Wi-Fi SSID"
+            default "PROV_SSID"
+            depends on !EXAMPLE_SSID_SET_MAC
+            help
+                SSID (network name) for the example to connect to.
+
+        config EXAMPLE_PASS
+            string "Wi-Fi Password"
+            default "PROV_PASS"
+            help
+                Wi-Fi password (WPA or WPA2) for the example to use.
+
+        config EXAMPLE_USE_SEC_1
+            bool
+            default y
+            prompt "Use Security Version 1"
+            help
+                Security version 1 used Curve25519 key exchange for establishing
+                secure session between device and client during provisioning
+
+        config EXAMPLE_USE_POP
+            bool
+            depends on EXAMPLE_USE_SEC_1
+            default y
+            prompt "Use proof-of-possession"
+            help
+                Proof-of-possession can be optionally used to prove that the device is indeed
+                in possession of the user who is provisioning the device. This proof-of-possession
+                is internally used to generate the shared secret through key exchange.
+
+        config EXAMPLE_POP
+            string "Proof-of-possession"
+            default "abcd1234"
+            depends on EXAMPLE_USE_POP
+
+        config EXAMPLE_RESET_PROVISIONED
+            bool
+            default n
+            prompt "Reset provisioned status of the device"
+            help
+                This erases the NVS to reset provisioned status of the device on every reboot.
+                Provisioned status is determined by the Wi-Fi STA configuration, saved on the NVS.
+
+        config EXAMPLE_AP_RECONN_ATTEMPTS
+            int "Maximum AP connection attempts"
+            default 5
+            help
+                Set the maximum connection attempts to perform when connecting to a Wi-Fi AP.
+
+    endmenu
+
+    menu "Server HTTP"
+
+        config EXAMPLE_MDNS_HOST_NAME
+            string "mDNS Host Name"
+            default "esp-home"
+            help
+                Specify the domain name used in the mDNS service.
+                Note that webpage also take it as a part of URL where it will send GET/POST requests to.
+
+        choice EXAMPLE_WEB_DEPLOY_MODE
+            prompt "Website deploy mode"
+            default EXAMPLE_WEB_DEPLOY_SEMIHOST
+            help
+                Select website deploy mode.
+                You can deploy website to host, and ESP32 will retrieve them in a semihost way (JTAG is needed).
+                You can deploy website to SD card or SPI flash, and ESP32 will retrieve them via SDIO/SPI interface.
+                Detailed operation steps are listed in the example README file.
+            config EXAMPLE_WEB_DEPLOY_SEMIHOST
+                bool "Deploy website to host (JTAG is needed)"
+                help
+                    Deploy website to host.
+                    It is recommended to choose this mode during developing.
+            config EXAMPLE_WEB_DEPLOY_SD
+                depends on IDF_TARGET_ESP32
+                bool "Deploy website to SD card"
+                help
+                    Deploy website to SD card.
+                    Choose this production mode if the size of website is too large (bigger than 2MB).
+            config EXAMPLE_WEB_DEPLOY_SF
+                bool "Deploy website to SPI Nor Flash"
+                help
+                    Deploy website to SPI Nor Flash.
+                    Choose this production mode if the size of website is small (less than 2MB).
+        endchoice
+
+        if EXAMPLE_WEB_DEPLOY_SEMIHOST
+            config EXAMPLE_HOST_PATH_TO_MOUNT
+                string "Host path to mount (e.g. absolute path to web dist directory)"
+                default "PATH-TO-WEB-DIST_DIR"
+                help
+                    When using semihost in ESP32, you should specify the host path which will be mounted to VFS.
+                    Note that only absolute path is acceptable.
+        endif
+
+        config EXAMPLE_WEB_MOUNT_POINT
+            string "Website mount point in VFS"
+            default "/www"
+            help
+                Specify the mount point in VFS.
+
+    endmenu
+
+    menu "Bluetooth"
+        config TIME_SCAN
+            int "Tiempo de escaneo"
+            default 5
+            help
+                Tiempo de la duración de cada escaneo.
+        
+        config FREQ_SCAN
+            int "Frecuencia de escaneo (minutos)"
+            default 5
+            help
+                Frecuencia de escaneo en minutos
+        
+        config DISTANCIA_MAXIMA
+            int "Distancia maxima"
+            default 3
+            help
+                Distancia máxima para escanear dispositivos.
+
+    endmenu
+
+    menu "Deep sleep"
+        config HOUR_TO_SLEEP
+            int "Hora de irse a dormir (0-23)"
+            default 22
+            help
+                Hora de dormir al sistema.
+
+        config HOUR_TO_WAKEUP
+            int "Hora de despertar (0-23)"
+            default 8
+            help
+                Hora de despertar al sistema.
+
+    endmenu
+endmenu
