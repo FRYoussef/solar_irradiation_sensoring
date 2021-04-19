@@ -63,7 +63,7 @@ static void timer_callback_logs(void * args){
 
     // Open file for reading
     //printf("Abrimos el fichero para lectura\n");
-    f = fopen("/spiflash/logswarn.txt", "rb");
+    f = fopen("/spiflash/logs.txt", "rb");
     if (f == NULL) {
         printf("Failed to open file for reading");
         return;
@@ -95,7 +95,7 @@ void redireccionaLogs(){
 
     /*Redireccionamos la salida de los logs*/
     ESP_LOGI(TAG, "Opening file");
-    f = fopen("/spiflash/logswarn.txt", "wb");
+    f = fopen("/spiflash/logs.txt", "wb");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for writing");
         return;
