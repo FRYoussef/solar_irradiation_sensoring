@@ -6,11 +6,11 @@ static esp_mqtt_client_handle_t client;
 
 
 bool primeraConexion = true;
+                                                    // /location/board name/sensor metric/sensor number/config parameter  
+static const char * TOPIC_SAMPLE_FREQ_IRRADIATION = "/ciu/lopy4/irradiation/1/sample_frequency";
+static const char * TOPIC_SEND_FREQ_IRRADIATION = "/ciu/lopy4/irradiation/1/send_frequency";
+static const char * TOPIC_N_SAMPLES_IRRADIATION = "/ciu/lopy4/irradiation/1/sample_number";
 
-static const char * TOPIC_SAMPLE_FREQ_IRRADIATION = "/lopy4/irradiation/sample_frequency";
-static const char * TOPIC_SEND_FREQ_IRRADIATION = "/lopy4/irradiation/send_frequency";
-static const char * TOPIC_N_SAMPLES_IRRADIATION = "/lopy4/irradiation/sample_number";
-
-static const char * TOPIC_SAMPLE_FREQ_BATTERY_LEVEL = "/lopy4/battery_level/sample_frequency";
-static const char * TOPIC_SEND_FREQ_BATTERY_LEVEL = "/lopy4/battery_level/send_frequency";
-static const char * TOPIC_N_SAMPLES_BATTERY_LEVEL = "/lopy4/battery_level/sample_number";
+static const char * TOPIC_SAMPLE_FREQ_BATTERY_LEVEL = "/ciu/lopy4/battery_level/1/sample_frequency";
+static const char * TOPIC_SEND_FREQ_BATTERY_LEVEL = "/ciu/lopy4/battery_level/1/send_frequency";
+static const char * TOPIC_N_SAMPLES_BATTERY_LEVEL = "/ciu/lopy4/battery_level/1/sample_number";

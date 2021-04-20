@@ -32,29 +32,8 @@
 #define RW_TEST_LENGTH 128               /*!< Data length for r/w test, [0,DATA_LENGTH] */
 #define DELAY_TIME_BETWEEN_ITEMS_MS 1000 /*!< delay time between different test items */
 
-
-#define I2C_MASTER_SCL_IO CONFIG_I2C_MASTER_SCL_TEMP               /*!< gpio number for I2C master clock */
-#define I2C_MASTER_SDA_IO CONFIG_I2C_MASTER_SDA_TEMP               /*!< gpio number for I2C master data  */
-#define I2C_MASTER_NUM I2C_NUMBER(CONFIG_I2C_MASTER_PORT_NUM_TEMP) /*!< I2C port number for master dev */
-#define I2C_MASTER_FREQ_HZ CONFIG_I2C_MASTER_FREQUENCY_TEMP        /*!< I2C master clock frequency */
-#define I2C_MASTER_TX_BUF_DISABLE 0                           /*!< I2C master doesn't need buffer */
-#define I2C_MASTER_RX_BUF_DISABLE 0                           /*!< I2C master doesn't need buffer */
-
-
-#define SI7021_READ_TEMP 0xF3
-#define SI7021_READ_RH 0xF5
-#define SI7021_READ_TEMP_PREV_RH 0xE0
-#define SI7021_SENSOR_ADDR 0x40
-
-#define WRITE_BIT I2C_MASTER_WRITE              /*!< I2C master write */
-#define READ_BIT I2C_MASTER_READ                /*!< I2C master read */
-#define ACK_CHECK_EN 0x1                        /*!< I2C master will check ack from slave*/
-#define ACK_CHECK_DIS 0x0                       /*!< I2C master will not check ack from slave */
-#define ACK_VAL 0x0                             /*!< I2C ack value */
-#define NACK_VAL 0x1                            /*!< I2C nack value */
-
-static const char * MI_TOPIC_TEMP = "/Informatica/1/9/TEMP/3"; // Facultad/Piso/Aula/TipoSensor/NumSensor
-static const char * MI_TOPIC_HUM = "/Informatica/1/9/HUM/3";
+static const char * TOPIC_TEMP = "/ciu/lopy4/irradiation/1"; // /location/board name/sensor metric/sensor number
+static const char * TOPIC_HUM = "/ciu/lopy4/irradiation/1";
 
 
 #define WINDOW_SIZE_TEMP CONFIG_WINDOW_SIZE_TEMP
