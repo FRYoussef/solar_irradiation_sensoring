@@ -3,7 +3,7 @@
 static const char *TAG = "adc_reader";
 extern void enviar_al_broker(const char *topic, const char *data, int len, int qos, int retain);
 
-int read_adc(float *value, int adc_index) {
+int read_adc(int *value, int adc_index) {
     
     return 0;
 }
@@ -21,7 +21,7 @@ static void sampeling_timer_callback(void * args){
             sample.value = data.value;
         }
     }
-    sample.value = sample.value / adc_params[adc_index].n_samples;
+    sample.value = (int) sample.value / adc_params[adc_index].n_samples;
 
     ESP_LOGI(TAG, "Sample from ADC(%d) = %d", adc_index, sample.value);    
     
@@ -63,18 +63,81 @@ static void broker_sender_callback(void * args){
     }
 }
 
-//TODO
-void init_adcs(){
+
+esp_err_t power_pin_setup(void) {
+    gpio_config_t io_conf;
+    
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (1ULL << POWER_PIN);
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+    return gpio_config(&io_conf);
+}
+
+
+esp_err_t power_pin_down(void) {
+    return gpio_set_level(POWER_PIN, 0);
+}
+
+
+esp_err_t power_pin_up(void) {
+    return gpio_set_level(POWER_PIN, 1);
+}
+
+
+esp_err_t set_bias(void) {
+    dac_output_enable(DAC_CHANNEL);
+    return dac_output_voltage(DAC_CHANNEL, BIAS_DAC_VALUE);
+}
+
+
+int adc1_channel_setup(uint32_t channel, esp_adc_cal_characteristics_t *chars) {
+    int ret = 0;
+    ret |= adc1_config_channel_atten(channel, ADC_ATTENUATION);
+    ret |= esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTENUATION, ADC_WIDTH_BIT_12, ADC_VREF, chars);
+    return ret;
+}
+
+
+int adcs_setup(void) {
+    int ret = 0;
+    adc1_config_width(ADC_WIDTH_BIT_12);
+
+    for(int i = 0; i < N_ADC; i++)
+        ret |= adc1_channel_setup(adc_params[i].channel, adc_params[i].adc_chars);
+    
+    return ret;
+}
+
+
+int setup(){
+    //power pin configuration
+    if(power_pin_setup() != ESP_OK || power_pin_up() != ESP_OK) {
+        ESP_LOGE(TAG, "Failed configuring power pin.");
+        return 1;
+    }
+
+    // DAC configuration
+    if(set_bias() != ESP_OK) {
+        ESP_LOGE(TAG, "Failed configuring DAC.");
+        return 1;
+    }
+
     // ADCs configuration
+    if(adcs_setup() != ESP_OK) {
+        ESP_LOGE(TAG, "Failed configuring ADCs.");
+        return 1;
+    }
 
     // timers configuration
-    for(int i = 0; i < N_ADC; i++) {
+    for(int i = 0; i < N_ADC_MEASURES; i++) {
         // sampeling adc timer
         const esp_timer_create_args_t sample_timer_args = {
             .callback = &sampeling_timer_callback,
             .name = "sampeling_timer",
             .arg = (void *)i,
-        }; 
+        };
         esp_timer_create(&sample_timer_args, &sampeling_timer[i]);
         esp_timer_start_periodic(sampeling_timer[i], adc_params[i].sample_frequency*1000000);
 
@@ -87,6 +150,8 @@ void init_adcs(){
         esp_timer_create(&broker_sender_timer_args, &broker_sender_timer[i]);
         esp_timer_start_periodic(broker_sender_timer[i], adc_params[i].send_frenquency*1000000);
     }
+
+    return 0;
 }
 
 
