@@ -25,33 +25,54 @@
 
 #include "sensors_readings.h"
 
-#define _I2C_NUMBER(num) I2C_NUM_##num
-#define I2C_NUMBER(num) _I2C_NUMBER(num)
-
 #define DATA_LENGTH 512                  /*!< Data buffer length of test buffer */
 #define RW_TEST_LENGTH 128               /*!< Data length for r/w test, [0,DATA_LENGTH] */
 #define DELAY_TIME_BETWEEN_ITEMS_MS 1000 /*!< delay time between different test items */
 
-static const char * TOPIC_TEMP = "/ciu/lopy4/irradiation/1"; // /location/board name/sensor metric/sensor number
-static const char * TOPIC_HUM = "/ciu/lopy4/irradiation/1";
+struct adc_config_params {
+    int window_size;
+    int sample_frequency;
+    int send_frenquency;
+    int n_samples;
+    char *mqtt_topic;
+};
 
+// inizialise for each adc its parameters
+static struct adc_config_params adc_params[N_ADC] = {
+    {
+        .window_size = CONFIG_WINDOW_SIZE_IRRAD,
+        .sample_frequency = CONFIG_SAMPLE_FREQ_IRRAD,
+        .send_frenquency = CONFIG_SEND_FREQ_IRRAD,
+        .n_samples = CONFIG_N_SAMPLES_IRRAD,
+        .mqtt_topic = CONFIG_MQTT_TOPIC_IRRAD,
+    },
+    {
+        .window_size = CONFIG_WINDOW_SIZE_BATTERY,
+        .sample_frequency = CONFIG_SAMPLE_FREQ_BATTERY,
+        .send_frenquency = CONFIG_SEND_FREQ_BATTERY,
+        .n_samples = CONFIG_N_SAMPLES_BATTERY,
+        .mqtt_topic = CONFIG_MQTT_TOPIC_BATTERY,
+    },
+};
 
-#define WINDOW_SIZE_TEMP CONFIG_WINDOW_SIZE_TEMP
-int SAMPLE_FREQ_TEMP = CONFIG_SAMPLE_FREQ_TEMP;
-int SEND_FREQ_TEMP = CONFIG_SEND_FREQ_TEMP;
-int N_SAMPLES_TEMP = CONFIG_N_SAMPLES_TEMP;
-
-
-struct bufferMuestrasEnvio {
-    struct si7021_reading muestras[WINDOW_SIZE_TEMP];
+struct send_sample_buffer {
+    struct adc_reading *samples;
     int ini;
     int cont;
 };
 
-struct bufferMuestrasEnvio listaMuestrasParaEnviarTemp = {
+struct send_sample_buffer adcs_send_buffers[N_ADC] = {
+    {
+        .samples = { [0 ... adc_params[IRRADIATION_ADC_INDEX].window_size-1] = 0 },
         .ini = 0,
-        .cont = 0
+        .cont = 0,
+    },
+    {
+        .samples = { [0 ... adc_params[BATTERY_ADC_INDEX].window_size-1] = 0 },
+        .ini = 0,
+        .cont = 0,
+    },
 };
 
-esp_timer_handle_t periodic_timer_envio_al_brocker;
-esp_timer_handle_t periodic_timer_sensor_temp_hum;
+esp_timer_handle_t sampeling_timer[N_ADC];
+esp_timer_handle_t broker_sender_timer[N_ADC];

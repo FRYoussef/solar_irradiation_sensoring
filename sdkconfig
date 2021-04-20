@@ -121,31 +121,8 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
-# Example Configuration
+# Solar Irradiation Configuration
 #
-
-#
-# I2C Master
-#
-
-#
-# Temperatura y humedad
-#
-CONFIG_I2C_MASTER_SCL_TEMP=19
-CONFIG_I2C_MASTER_SDA_TEMP=18
-CONFIG_I2C_MASTER_PORT_NUM_TEMP=0
-CONFIG_I2C_MASTER_FREQUENCY_TEMP=100000
-# end of Temperatura y humedad
-
-#
-# CO2
-#
-CONFIG_I2C_MASTER_SCL_CO2=23
-CONFIG_I2C_MASTER_SDA_CO2=22
-CONFIG_I2C_MASTER_PORT_NUM_CO2=1
-CONFIG_I2C_MASTER_FREQUENCY_CO2=100000
-# end of CO2
-# end of I2C Master
 
 #
 # Broker
@@ -154,27 +131,29 @@ CONFIG_BROKER_URL="mqtts://192.168.1.54:8883"
 # end of Broker
 
 #
-# Sensorizacion
+# Sensoring
 #
 
 #
-# TEmperatura y humedad
+# Irradiation
 #
-CONFIG_SAMPLE_FREQ_TEMP=5
-CONFIG_SEND_FREQ_TEMP=20
-CONFIG_N_SAMPLES_TEMP=5
-CONFIG_WINDOW_SIZE_TEMP=3
-# end of TEmperatura y humedad
+CONFIG_SAMPLE_FREQ_IRRAD=2
+CONFIG_SEND_FREQ_IRRAD=10
+CONFIG_N_SAMPLES_IRRAD=10
+CONFIG_WINDOW_SIZE_IRRAD=10
+CONFIG_MQTT_TOPIC_IRRAD="/ciu/lopy4/irradiation/1"
+# end of Irradiation
 
 #
-# CO2
+# Battery level
 #
-CONFIG_SAMPLE_FREQ_CO2=5
-CONFIG_SEND_FREQ_CO2=20
-CONFIG_N_SAMPLES_CO2=5
-CONFIG_WINDOW_SIZE_CO2=3
-# end of CO2
-# end of Sensorizacion
+CONFIG_SAMPLE_FREQ_BATTERY=2
+CONFIG_SEND_FREQ_BATTERY=10
+CONFIG_N_SAMPLES_BATTERY=10
+CONFIG_WINDOW_SIZE_BATTERY=10
+CONFIG_MQTT_TOPIC_BATTERY="/ciu/lopy4/battery_level/1"
+# end of Battery level
+# end of Sensoring
 
 #
 # Provisioning
@@ -190,30 +169,12 @@ CONFIG_EXAMPLE_AP_RECONN_ATTEMPTS=5
 # end of Provisioning
 
 #
-# Server HTTP
-#
-CONFIG_EXAMPLE_MDNS_HOST_NAME="esp-home"
-# CONFIG_EXAMPLE_WEB_DEPLOY_SEMIHOST is not set
-# CONFIG_EXAMPLE_WEB_DEPLOY_SD is not set
-CONFIG_EXAMPLE_WEB_DEPLOY_SF=y
-CONFIG_EXAMPLE_WEB_MOUNT_POINT="/www"
-# end of Server HTTP
-
-#
-# Bluetooth
-#
-CONFIG_TIME_SCAN=5
-CONFIG_FREQ_SCAN=5
-CONFIG_DISTANCIA_MAXIMA=5
-# end of Bluetooth
-
-#
 # Deep sleep
 #
 CONFIG_HOUR_TO_SLEEP=22
 CONFIG_HOUR_TO_WAKEUP=8
 # end of Deep sleep
-# end of Example Configuration
+# end of Solar Irradiation Configuration
 
 #
 # Compiler options

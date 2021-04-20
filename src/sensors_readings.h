@@ -1,11 +1,9 @@
-struct si7021_reading
-{
-    float humidity;
-    float temperature;
-};
+// define number of ADCs to read, and its indices
+#define N_ADC 2
+#define IRRADIATION_ADC_INDEX 0
+#define BATTERY_ADC_INDEX 1
 
-struct sgp30_reading
+struct adc_reading
 {
-    float TVOC;
-    float CO2;
+    float value;
 };

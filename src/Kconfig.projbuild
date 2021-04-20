@@ -1,17 +1,17 @@
 menu "Solar Irradiation Configuration"    
     menu "Broker"
         config BROKER_URL
-        string "Broker URL"
-        default "mqtt://192.168.1.52"
-        help
-            URL of the broker to connect to
+            string "Broker URL"
+            default "mqtt://192.168.1.52"
+            help
+                URL of the broker to connect to
 
         config BROKER_URL_FROM_STDIN
             bool
             default y if BROKER_URL = "FROM_STDIN"
     endmenu
 
-    menu "Sensorizacion"
+    menu "Sensoring"
         menu "Irradiation"
             config SAMPLE_FREQ_IRRAD
                 int "irradiation sample frequency"
@@ -36,6 +36,12 @@ menu "Solar Irradiation Configuration"
                 default 10
                 help
                     window size
+
+            config MQTT_TOPIC_IRRAD
+                string "MQTT uri topic"
+                default "/ciu/lopy4/irradiation/1"
+                help 
+                    MQTT topic uri where to send and receive data. It is structured as follows: /location/board name/sensor metric/sensor number
         endmenu
 
         menu "Battery level"
@@ -62,6 +68,12 @@ menu "Solar Irradiation Configuration"
                 default 10
                 help
                     window size
+            
+            config MQTT_TOPIC_BATTERY
+                string "MQTT uri topic"
+                default "/ciu/lopy4/battery_level/1"
+                help 
+                    MQTT topic uri where to send and receive data. It is structured as follows: /location/board name/sensor metric/sensor number
         endmenu
     endmenu
 
