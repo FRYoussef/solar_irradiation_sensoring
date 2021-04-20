@@ -124,7 +124,7 @@ int adcs_setup(void) {
 }
 
 
-int setup(){
+int setup_adc_reader(){
     //power pin configuration
     if(power_pin_setup() != ESP_OK || power_pin_up() != ESP_OK) {
         ESP_LOGE(TAG, "Failed configuring power pin.");
@@ -178,6 +178,16 @@ int start_timer(int adc, esp_timer_handle_t timer, int freq){
 }
 
 
+int start_broker_send_timers() {
+    int ret = 0;
+    
+    for(int i = 0; i < N_ADC_MEASURES; i++)
+        ret |= start_timer(i, broker_sender_timer[i], adc_params[i].send_frenquency);
+
+    return ret;
+}
+
+
 int stop_timer(int adc, esp_timer_handle_t timer){
     esp_err_t ret = esp_timer_stop(timer);
     if (ret != ESP_OK){
@@ -186,6 +196,16 @@ int stop_timer(int adc, esp_timer_handle_t timer){
     }
 
     return 0;
+}
+
+
+int stop_broker_send_timers() {
+    int ret = 0;
+    
+    for(int i = 0; i < N_ADC_MEASURES; i++)
+        ret |= stop_timer(i, broker_sender_timer[i]);
+
+    return ret;
 }
 
 
