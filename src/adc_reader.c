@@ -59,7 +59,7 @@ static void broker_sender_callback(void * args){
         enviar_al_broker(adc_params[adc_index].mqtt_topic, &str, 0, 1, 0);
     } 
     else {
-        ESP_LOGW(TAG, "There are not still data to send\n");
+        ESP_LOGW(TAG, "There are still not data to send\n");
     }
 }
 
