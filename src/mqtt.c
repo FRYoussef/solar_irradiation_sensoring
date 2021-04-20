@@ -12,12 +12,12 @@
 static const char *TAG = "MQTTS";
 
 
-#if CONFIG_BROKER_CERTIFICATE_OVERRIDDEN == 1
-static const uint8_t mqtt_eclipse_org_pem_start[]  = "-----BEGIN CERTIFICATE-----\n" CONFIG_BROKER_CERTIFICATE_OVERRIDE "\n-----END CERTIFICATE-----";
-#else
-extern const uint8_t mqtt_eclipse_org_pem_start[]   asm("_binary_mqtt_eclipse_org_pem_start");
-#endif
-extern const uint8_t mqtt_eclipse_org_pem_end[]   asm("_binary_mqtt_eclipse_org_pem_end");
+// #if CONFIG_BROKER_CERTIFICATE_OVERRIDDEN == 1
+// static const uint8_t mqtt_eclipse_org_pem_start[]  = "-----BEGIN CERTIFICATE-----\n" CONFIG_BROKER_CERTIFICATE_OVERRIDE "\n-----END CERTIFICATE-----";
+// #else
+// extern const uint8_t mqtt_eclipse_org_pem_start[]   asm("_binary_mqtt_eclipse_org_pem_start");
+// #endif
+// extern const uint8_t mqtt_eclipse_org_pem_end[]   asm("_binary_mqtt_eclipse_org_pem_end");
 
 
 // extern void inicializarTimerSensorTemperaturaYHumedad();
@@ -139,7 +139,7 @@ void mqtt_app_start(void)
 {
     esp_mqtt_client_config_t mqtt_cfg = {
         .uri = BROKER_URI, //BROKER_URL
-        .cert_pem = (const char *)mqtt_eclipse_org_pem_start,
+        //.cert_pem = (const char *)mqtt_eclipse_org_pem_start,
     };
 
     client = esp_mqtt_client_init(&mqtt_cfg);
