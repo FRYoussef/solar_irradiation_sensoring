@@ -3,8 +3,22 @@
 static const char *TAG = "adc_reader";
 extern void enviar_al_broker(const char *topic, const char *data, int len, int qos, int retain);
 
-int read_adc(int *value, int adc_index) {
+
+int get_adc_mv(int *value, int adc_index) {
+    int adc_val = adc1_get_raw(adc_params[adc_index].channel);
+    value = esp_adc_cal_raw_to_voltage(adc_val, adc_params[adc_index].adc_chars);
+    return 0;
+}
+
+
+int get_irradiation_mv(int *value, int adc_index) {
+    int panel_mv, bias_mv;
     
+    get_adc_mv(&panel_mv, IRRADIATION_ADC_INDEX);
+    get_adc_mv(&bias_mv, BIAS_ADC_INDEX);
+
+    value = panel_mv - bias_mv;
+
     return 0;
 }
 
@@ -15,11 +29,10 @@ static void sampeling_timer_callback(void * args){
     struct adc_reading data, sample;
 
     for(int i= 0 ; i < adc_params[adc_index].n_samples; i++){
-        if (read_adc(&data.value, adc_index)){
+        if (adc_params[adc_index].get_mv(&data.value, adc_index))
             ESP_LOGE(TAG, "Error reading ADC with index %d", adc_index);
-        } else {
+        else
             sample.value = data.value;
-        }
     }
     sample.value = (int) sample.value / adc_params[adc_index].n_samples;
 

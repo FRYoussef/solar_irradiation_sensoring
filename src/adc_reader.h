@@ -27,6 +27,9 @@
 #define ADC_VREF 1100
 #define ADC_ATTENUATION ADC_ATTEN_DB_11
 
+int get_adc_mv(int *value, int adc_index);
+int get_irradiation_mv(int *value, int adc_index);
+
 struct adc_config_params {
     int window_size;
     int sample_frequency;
@@ -35,6 +38,7 @@ struct adc_config_params {
     int channel;
     char *mqtt_topic;
     esp_adc_cal_characteristics_t adc_chars;
+    int (*get_mv)(int *, int);
 };
 
 // inizialise for each adc its parameters
@@ -47,6 +51,7 @@ static struct adc_config_params adc_params[N_ADC] = {
         .n_samples = CONFIG_N_SAMPLES_IRRAD,
         .channel = ADC1_CHANNEL_0,
         .mqtt_topic = CONFIG_MQTT_TOPIC_IRRAD,
+        .get_mv = get_irradiation_mv,
     },
     // battery params
     {
@@ -56,6 +61,7 @@ static struct adc_config_params adc_params[N_ADC] = {
         .n_samples = CONFIG_N_SAMPLES_BATTERY,
         .channel = ADC1_CHANNEL_1,
         .mqtt_topic = CONFIG_MQTT_TOPIC_BATTERY,
+        .get_mv = get_adc_mv,
     },
     // bias params. Many of its parameters are not used, it is used to calculate irradiation value
     {
@@ -65,6 +71,7 @@ static struct adc_config_params adc_params[N_ADC] = {
         .n_samples = CONFIG_N_SAMPLES_IRRAD,
         .channel = ADC1_CHANNEL_6,
         .mqtt_topic = "",
+        .get_mv = get_adc_mv,
     },
 };
 
