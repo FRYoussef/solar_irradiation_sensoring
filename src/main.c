@@ -10,7 +10,6 @@
 #include "esp_netif.h"
 
 #include "freertos/FreeRTOS.h"
-//#include "/home/ubuntu/esp/esp-idf/examples/common_components/protocol_examples_common/include/protocol_examples_common.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -29,8 +28,8 @@ static const char *TAG = "main";
 void app_main(void)
 {   
     //Just redirect error logs
-    //esp_log_level_set("*", ESP_LOG_ERROR);
-    //redireccionaLogs();
+    esp_log_level_set("*", ESP_LOG_ERROR);
+    redireccionaLogs();
 
     // Configuramos el gestor de energia
     esp_pm_config_esp32_t config = {
@@ -39,7 +38,6 @@ void app_main(void)
         .light_sleep_enable = true
     };
     esp_pm_configure(&config);
-
 
     /* Initialize networking stack */
     ESP_ERROR_CHECK(esp_netif_init());
@@ -51,13 +49,9 @@ void app_main(void)
     /* Initialize NVS needed by Wi-Fi */
     ESP_ERROR_CHECK(nvs_flash_init());
 
-    //Conectamos al WIFI
-    //ESP_ERROR_CHECK(example_connect());
-
     //wifi provisioning
     ESP_LOGI(TAG, "Starting WiFi SoftAP provisioning");
     provisioning();
-    
     
     vTaskSuspend(NULL);
 }

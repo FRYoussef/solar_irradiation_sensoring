@@ -116,7 +116,7 @@ void provisioning(void)
         return;
     }
 
-    if (provisioned == false) {
+    if (!provisioned) {
         /* If not provisioned, start provisioning via soft AP */
         ESP_LOGI(TAG, "Starting WiFi SoftAP provisioning");
         start_softap_provisioning();

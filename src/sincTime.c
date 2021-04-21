@@ -24,6 +24,8 @@
 static int32_t HOUR_TO_SLEEP = CONFIG_HOUR_TO_SLEEP;
 static int32_t HOUR_TO_WAKEUP = CONFIG_HOUR_TO_WAKEUP;
 
+extern esp_err_t power_pin_down(void);
+
 static const char *TAG = "sntp";
 esp_timer_handle_t deep_sleep_timer;
 
@@ -99,12 +101,20 @@ static void deep_sleep_timer_callback(void * args){
     }
     ESP_LOGI(TAG, "Voy a dormir %d horas", horas);
     long long int sleep_time = horas * 60 * 60 * 1000 * 1000;
+
+#ifdef CONFIG_SHUT_DOWN_POWER_PIN
+    power_pin_down();
+#endif
+
     esp_sleep_enable_timer_wakeup(sleep_time);
     esp_deep_sleep_start();
 }
 
-void sincTimeAndSleep(void)
-{
+void sincTimeAndSleep(void) {
+#ifndef CONFIG_DEEP_SLEEP
+        return;
+#endif
+
     time_t now;
     struct tm timeinfo;
     time(&now);
