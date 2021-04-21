@@ -50,7 +50,7 @@ static struct adc_config_params adc_params[N_ADC] = {
         .send_frenquency = CONFIG_SEND_FREQ_IRRAD,
         .n_samples = CONFIG_N_SAMPLES_IRRAD,
         .channel = ADC1_CHANNEL_0,
-        .mqtt_topic = CONFIG_MQTT_TOPIC_IRRAD,
+        .mqtt_topic = TOPIC_IRRADIATION,
         .get_mv = get_irradiation_mv,
     },
     // battery params
@@ -60,7 +60,7 @@ static struct adc_config_params adc_params[N_ADC] = {
         .send_frenquency = CONFIG_SEND_FREQ_BATTERY,
         .n_samples = CONFIG_N_SAMPLES_BATTERY,
         .channel = ADC1_CHANNEL_1,
-        .mqtt_topic = CONFIG_MQTT_TOPIC_BATTERY,
+        .mqtt_topic = TOPIC_BATTERY_LEVEL,
         .get_mv = get_adc_mv,
     },
     // bias params. Many of its parameters are not used, it is used to calculate irradiation value

@@ -1,22 +1,14 @@
 #include <stdio.h>
 #include "esp_log.h"
-#include "driver/i2c.h"
-#include "sdkconfig.h"
 #include "mqtt_client.h"
 
-#include "esp_wifi.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "esp_event.h"
-#include "esp_netif.h"
 
 #include "freertos/FreeRTOS.h"
-#include "lwip/sockets.h"
-#include "lwip/dns.h"
-#include "lwip/netdb.h"
 
 #include <stdint.h>
-#include <stddef.h>
 #include <string.h>
 #include "esp_vfs.h"
 #include "esp_vfs_fat.h"

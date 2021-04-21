@@ -34,14 +34,14 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
 
-            if (first_conexion){
+            if (first_conexion_mqtt){
                 /*Iniciamos los timers de lectura y envio*/
                 if(setup_adc_reader()) {
                     ESP_LOGE(TAG, "Failed to create adc_reader module.");
                     return 1;
                 }
 
-                first_conexion = false;
+                first_conexion_mqtt = false;
 
                 esp_mqtt_client_subscribe(client, TOPIC_SAMPLE_FREQ_IRRADIATION, 1);
                 esp_mqtt_client_subscribe(client, TOPIC_SEND_FREQ_IRRADIATION, 1);

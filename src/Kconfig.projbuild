@@ -36,12 +36,6 @@ menu "Solar Irradiation Configuration"
                 default 10
                 help
                     window size
-
-            config MQTT_TOPIC_IRRAD
-                string "MQTT uri topic"
-                default "/ciu/lopy4/irradiation/1"
-                help 
-                    MQTT topic uri where to send and receive data. It is structured as follows: /location/board name/sensor metric/sensor number
         endmenu
 
         menu "Battery level"
@@ -68,12 +62,6 @@ menu "Solar Irradiation Configuration"
                 default 10
                 help
                     window size
-            
-            config MQTT_TOPIC_BATTERY
-                string "MQTT uri topic"
-                default "/ciu/lopy4/battery_level/1"
-                help 
-                    MQTT topic uri where to send and receive data. It is structured as follows: /location/board name/sensor metric/sensor number
         endmenu
     endmenu
 
