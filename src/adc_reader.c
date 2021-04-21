@@ -6,7 +6,7 @@ extern void enviar_al_broker(const char *topic, const char *data, int len, int q
 
 int get_adc_mv(int *value, int adc_index) {
     int adc_val = adc1_get_raw(adc_params[adc_index].channel);
-    value = esp_adc_cal_raw_to_voltage(adc_val, adc_params[adc_index].adc_chars);
+    *value = esp_adc_cal_raw_to_voltage(adc_val, &adc_params[adc_index].adc_chars);
     return 0;
 }
 
@@ -17,59 +17,59 @@ int get_irradiation_mv(int *value, int adc_index) {
     get_adc_mv(&panel_mv, IRRADIATION_ADC_INDEX);
     get_adc_mv(&bias_mv, BIAS_ADC_INDEX);
 
-    value = panel_mv - bias_mv;
+    *value = panel_mv - bias_mv;
 
     return 0;
 }
 
 
 static void sampeling_timer_callback(void * args){
-    int adc_index = (int *) args;
+    int *adc_index = (int *) args;
 
-    int data, sample;
+    int data, sample = 0;
 
-    for(int i= 0 ; i < adc_params[adc_index].n_samples; i++){
-        if (adc_params[adc_index].get_mv(&data, adc_index))
-            ESP_LOGE(TAG, "Error reading ADC with index %d", adc_index);
+    for(int i= 0 ; i < adc_params[*adc_index].n_samples; i++){
+        if (adc_params[*adc_index].get_mv(&data, *adc_index))
+            ESP_LOGE(TAG, "Error reading ADC with index %d", *adc_index);
         else
             sample = data;
     }
-    sample = (int) sample / adc_params[adc_index].n_samples;
+    sample = (int) sample / adc_params[*adc_index].n_samples;
 
-    ESP_LOGI(TAG, "Sample from ADC(%d) = %d", adc_index, sample);    
+    ESP_LOGI(TAG, "Sample from ADC(%d) = %d", *adc_index, sample);    
     
     //Save the taken sample in the circular buffer
-    adcs_send_buffers[adc_index].samples[(adcs_send_buffers[adc_index].ini 
-            + adcs_send_buffers[adc_index].cont) % adc_params[adc_index].window_size] = sample;
+    adcs_send_buffers[*adc_index].samples[(adcs_send_buffers[*adc_index].ini 
+            + adcs_send_buffers[*adc_index].cont) % adc_params[*adc_index].window_size] = sample;
 
-    if (adcs_send_buffers[adc_index].cont == adc_params[adc_index].window_size) {
+    if (adcs_send_buffers[*adc_index].cont == adc_params[*adc_index].window_size) {
         // If buffer is full, rewrite first sample
-        adcs_send_buffers[adc_index].ini = adcs_send_buffers[adc_index].ini % adc_params[adc_index].window_size;
+        adcs_send_buffers[*adc_index].ini = adcs_send_buffers[*adc_index].ini % adc_params[*adc_index].window_size;
     } 
     else {
-        adcs_send_buffers[adc_index].cont++;
+        adcs_send_buffers[*adc_index].cont++;
     }
 }
 
 
 static void broker_sender_callback(void * args){
-    int adc_index = (int *) args;
+    int *adc_index = (int *) args;
 
     //See if there are samples to send
-    if (adcs_send_buffers[adc_index].cont > 0){
+    if (adcs_send_buffers[*adc_index].cont > 0){
         int mean = 0;
 
         // made the sample mean
-        for (int i = 0; i < adcs_send_buffers[adc_index].cont; i++)
-            mean += adcs_send_buffers[adc_index].samples[i];
+        for (int i = 0; i < adcs_send_buffers[*adc_index].cont; i++)
+            mean += adcs_send_buffers[*adc_index].samples[i];
 
-        mean /= adcs_send_buffers[adc_index].cont;
+        mean /= adcs_send_buffers[*adc_index].cont;
 
         // Codify data with CBOR format and send it to the broker
         char str[50];
-        sprintf(str, "%f", mean);
+        sprintf(str, "%d", mean);
         ESP_LOGD(TAG, "Send it to the broker\n");
-        enviar_al_broker(adc_params[adc_index].mqtt_topic, &str, 0, 1, 0);
+        enviar_al_broker(adc_params[*adc_index].mqtt_topic, (char *)&str, 0, 1, 0);
     } 
     else {
         ESP_LOGW(TAG, "There are still not data to send\n");
@@ -118,7 +118,7 @@ int adcs_setup(void) {
     adc1_config_width(ADC_WIDTH_BIT_12);
 
     for(int i = 0; i < N_ADC; i++)
-        ret |= adc1_channel_setup(adc_params[i].channel, adc_params[i].adc_chars);
+        ret |= adc1_channel_setup(adc_params[i].channel, &adc_params[i].adc_chars);
     
     return ret;
 }
@@ -161,6 +161,7 @@ int setup_adc_reader(){
         // broker sender timer
         ESP_LOGD(TAG, "Inicialazing broker sender timer\n");
         const esp_timer_create_args_t broker_sender_timer_args = {
+            .callback = &broker_sender_callback,
             .name = "broker_sender_timer",
             .arg = (void *)i,
         };
