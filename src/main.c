@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "esp_log.h"
-#include "driver/i2c.h"
 #include "sdkconfig.h"
 #include "mqtt_client.h"
 
@@ -11,9 +10,6 @@
 #include "esp_netif.h"
 
 #include "freertos/FreeRTOS.h"
-#include "lwip/sockets.h"
-#include "lwip/dns.h"
-#include "lwip/netdb.h"
 //#include "/home/ubuntu/esp/esp-idf/examples/common_components/protocol_examples_common/include/protocol_examples_common.h"
 
 #include <stdint.h>
@@ -32,17 +28,17 @@ static const char *TAG = "main";
 
 void app_main(void)
 {   
-    //Montamos una partición spiflash y redireccionamos los logs allí
+    //Just redirect error logs
     //esp_log_level_set("*", ESP_LOG_ERROR);
     //redireccionaLogs();
 
     // Configuramos el gestor de energia
     esp_pm_config_esp32_t config = {
-        .max_freq_mhz = 240 ,
-        .min_freq_mhz = 40 ,
+        .max_freq_mhz = CONFIG_MAX_CPU_FREQ_MHZ,
+        .min_freq_mhz = CONFIG_MIN_CPU_FREQ_MHZ,
         .light_sleep_enable = true
     };
-    esp_pm_configure(& config );
+    esp_pm_configure(&config);
 
 
     /* Initialize networking stack */

@@ -5,7 +5,7 @@
 
 #define IRRADIATION_ADC_INDEX 0
 #define BATTERY_ADC_INDEX 1
-#define BIAS_ADC_INDEX 2 // used for irradiation, always keep it at the end
+#define BIAS_ADC_INDEX 2 // used for irradiation, always keep it with the highest index
 
 struct adc_reading
 {
