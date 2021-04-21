@@ -26,17 +26,17 @@ int get_irradiation_mv(int *value, int adc_index) {
 static void sampeling_timer_callback(void * args){
     int adc_index = (int *) args;
 
-    struct adc_reading data, sample;
+    int data, sample;
 
     for(int i= 0 ; i < adc_params[adc_index].n_samples; i++){
-        if (adc_params[adc_index].get_mv(&data.value, adc_index))
+        if (adc_params[adc_index].get_mv(&data, adc_index))
             ESP_LOGE(TAG, "Error reading ADC with index %d", adc_index);
         else
-            sample.value = data.value;
+            sample = data;
     }
-    sample.value = (int) sample.value / adc_params[adc_index].n_samples;
+    sample = (int) sample / adc_params[adc_index].n_samples;
 
-    ESP_LOGI(TAG, "Sample from ADC(%d) = %d", adc_index, sample.value);    
+    ESP_LOGI(TAG, "Sample from ADC(%d) = %d", adc_index, sample);    
     
     //Save the taken sample in the circular buffer
     adcs_send_buffers[adc_index].samples[(adcs_send_buffers[adc_index].ini 
@@ -57,17 +57,17 @@ static void broker_sender_callback(void * args){
 
     //See if there are samples to send
     if (adcs_send_buffers[adc_index].cont > 0){
-        struct adc_reading mean = { .value = 0 };
+        int mean = 0;
 
         // made the sample mean
         for (int i = 0; i < adcs_send_buffers[adc_index].cont; i++)
-            mean.value += adcs_send_buffers[adc_index].samples[i].value;
+            mean += adcs_send_buffers[adc_index].samples[i];
 
-        mean.value /= adcs_send_buffers[adc_index].cont;
+        mean /= adcs_send_buffers[adc_index].cont;
 
         // Codify data with CBOR format and send it to the broker
         char str[50];
-        sprintf(str, "%f", mean.value);
+        sprintf(str, "%f", mean);
         ESP_LOGD(TAG, "Send it to the broker\n");
         enviar_al_broker(adc_params[adc_index].mqtt_topic, &str, 0, 1, 0);
     } 
@@ -125,6 +125,10 @@ int adcs_setup(void) {
 
 
 int setup_adc_reader(){
+    // allocate memory for send buffers
+    for(int i = 0; i < N_ADC_MEASURES; i++)
+        adcs_send_buffers[i].samples = malloc(sizeof(int) * adc_params[i].window_size);
+
     //power pin configuration
     if(power_pin_setup() != ESP_OK || power_pin_up() != ESP_OK) {
         ESP_LOGE(TAG, "Failed configuring power pin.");

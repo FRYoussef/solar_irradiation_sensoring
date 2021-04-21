@@ -76,23 +76,21 @@ static struct adc_config_params adc_params[N_ADC] = {
 };
 
 struct send_sample_buffer {
-    struct adc_reading *samples;
     int ini;
     int cont;
+    int *samples;
 };
 
-struct send_sample_buffer adcs_send_buffers[N_ADC] = {
+struct send_sample_buffer adcs_send_buffers[N_ADC_MEASURES] = {
     {
-        .samples = { [0 ... adc_params[IRRADIATION_ADC_INDEX].window_size-1] = 0 },
         .ini = 0,
         .cont = 0,
     },
     {
-        .samples = { [0 ... adc_params[BATTERY_ADC_INDEX].window_size-1] = 0 },
         .ini = 0,
         .cont = 0,
     },
 };
 
-esp_timer_handle_t sampeling_timer[N_ADC];
-esp_timer_handle_t broker_sender_timer[N_ADC];
+esp_timer_handle_t sampeling_timer[N_ADC_MEASURES];
+esp_timer_handle_t broker_sender_timer[N_ADC_MEASURES];
