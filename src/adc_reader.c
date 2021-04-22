@@ -108,7 +108,7 @@ static void sampling_timer_callback(void * args){
         if (adc_params[*adc_index].get_mv(&data, *adc_index))
             ESP_LOGE(TAG, "Error reading ADC with index %d", *adc_index);
         else
-            sample = data;
+            sample += data;
     }
     sample = (int) sample / adc_params[*adc_index].n_samples;
 
