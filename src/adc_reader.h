@@ -11,7 +11,10 @@
 #include <esp_adc_cal.h>
 #include <string.h>
 
-#include "sensors_readings.h"
+// define number of ADCs to read, and its indices
+#define N_ADC 3 // ADC channels used
+#define N_ADC_MEASURES 2 // number of ADCs used for own measures (different
+                        //channels could be used to calculate the same measure)
 
 #define POWER_PIN 21  // GPIO 21, P12 from LoPy4
 
@@ -27,8 +30,14 @@
 #define ADC_VREF 1100
 #define ADC_ATTENUATION ADC_ATTEN_DB_11
 
+// MQTT topics
+#define TOPIC_IRRADIATION "/ciu/lopy4/irradiation/1"
+#define TOPIC_BATTERY_LEVEL "/ciu/lopy4/battery_level/1"
+
 int get_adc_mv(int *value, int adc_index);
 int get_irradiation_mv(int *value, int adc_index);
+static void sampling_timer_callback(void *);
+static void broker_sender_callback(void *);
 
 struct adc_config_params {
     int window_size;
@@ -41,56 +50,8 @@ struct adc_config_params {
     int (*get_mv)(int *, int);
 };
 
-// inizialise for each adc its parameters
-static struct adc_config_params adc_params[N_ADC] = {
-    // solar panel params
-    {
-        .window_size = CONFIG_WINDOW_SIZE_IRRAD,
-        .sample_frequency = CONFIG_SAMPLE_FREQ_IRRAD,
-        .send_frenquency = CONFIG_SEND_FREQ_IRRAD,
-        .n_samples = CONFIG_N_SAMPLES_IRRAD,
-        .channel = ADC1_CHANNEL_0,
-        .mqtt_topic = TOPIC_IRRADIATION,
-        .get_mv = get_irradiation_mv,
-    },
-    // battery params
-    {
-        .window_size = CONFIG_WINDOW_SIZE_BATTERY,
-        .sample_frequency = CONFIG_SAMPLE_FREQ_BATTERY,
-        .send_frenquency = CONFIG_SEND_FREQ_BATTERY,
-        .n_samples = CONFIG_N_SAMPLES_BATTERY,
-        .channel = ADC1_CHANNEL_1,
-        .mqtt_topic = TOPIC_BATTERY_LEVEL,
-        .get_mv = get_adc_mv,
-    },
-    // bias params. Many of its parameters are not used, it is used to calculate irradiation value
-    {
-        .window_size = CONFIG_WINDOW_SIZE_IRRAD,
-        .sample_frequency = CONFIG_SAMPLE_FREQ_IRRAD,
-        .send_frenquency = CONFIG_SEND_FREQ_IRRAD,
-        .n_samples = CONFIG_N_SAMPLES_IRRAD,
-        .channel = ADC1_CHANNEL_6,
-        .mqtt_topic = "",
-        .get_mv = get_adc_mv,
-    },
-};
-
 struct send_sample_buffer {
     int ini;
     int cont;
     int *samples;
 };
-
-struct send_sample_buffer adcs_send_buffers[N_ADC_MEASURES] = {
-    {
-        .ini = 0,
-        .cont = 0,
-    },
-    {
-        .ini = 0,
-        .cont = 0,
-    },
-};
-
-esp_timer_handle_t sampeling_timer[N_ADC_MEASURES];
-esp_timer_handle_t broker_sender_timer[N_ADC_MEASURES];

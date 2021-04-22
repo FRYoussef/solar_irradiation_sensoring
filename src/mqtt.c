@@ -11,6 +11,15 @@
 
 static const char *TAG = "MQTTS";
 
+                                                    // /location/board name/sensor metric/sensor number/config parameter  
+static const char * TOPIC_SAMPLE_FREQ_IRRADIATION = "/ciu/lopy4/irradiation/1/sample_frequency";
+static const char * TOPIC_SEND_FREQ_IRRADIATION = "/ciu/lopy4/irradiation/1/send_frequency";
+static const char * TOPIC_N_SAMPLES_IRRADIATION = "/ciu/lopy4/irradiation/1/sample_number";
+
+static const char * TOPIC_SAMPLE_FREQ_BATTERY_LEVEL = "/ciu/lopy4/battery_level/1/sample_frequency";
+static const char * TOPIC_SEND_FREQ_BATTERY_LEVEL = "/ciu/lopy4/battery_level/1/send_frequency";
+static const char * TOPIC_N_SAMPLES_BATTERY_LEVEL = "/ciu/lopy4/battery_level/1/sample_number";
+
 
 // #if CONFIG_BROKER_CERTIFICATE_OVERRIDDEN == 1
 // static const uint8_t mqtt_eclipse_org_pem_start[]  = "-----BEGIN CERTIFICATE-----\n" CONFIG_BROKER_CERTIFICATE_OVERRIDE "\n-----END CERTIFICATE-----";
@@ -25,6 +34,10 @@ extern int stop_broker_send_timers();
 extern int change_sample_frequency(int sample_freq, int adc);
 extern int change_broker_sender_frequency(int send_freq, int adc);
 extern int change_sample_number(int n_samples, int adc);
+
+extern int IRRADIATION_ADC_INDEX;
+extern int BATTERY_ADC_INDEX;
+extern int BIAS_ADC_INDEX;
 
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 {

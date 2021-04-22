@@ -3,6 +3,82 @@
 static const char *TAG = "adc_reader";
 extern void enviar_al_broker(const char *topic, const char *data, int len, int qos, int retain);
 
+const int IRRADIATION_ADC_INDEX = 0;
+const int BATTERY_ADC_INDEX = 1;
+const int BIAS_ADC_INDEX = 2; // used for irradiation, always keep it with the highest index
+
+// inizialise for each adc its parameters
+static struct adc_config_params adc_params[N_ADC] = {
+    // solar panel params
+    {
+        .window_size = CONFIG_WINDOW_SIZE_IRRAD,
+        .sample_frequency = CONFIG_SAMPLE_FREQ_IRRAD,
+        .send_frenquency = CONFIG_SEND_FREQ_IRRAD,
+        .n_samples = CONFIG_N_SAMPLES_IRRAD,
+        .channel = ADC1_CHANNEL_0,
+        .mqtt_topic = TOPIC_IRRADIATION,
+        .get_mv = get_irradiation_mv,
+    },
+    // battery params
+    {
+        .window_size = CONFIG_WINDOW_SIZE_BATTERY,
+        .sample_frequency = CONFIG_SAMPLE_FREQ_BATTERY,
+        .send_frenquency = CONFIG_SEND_FREQ_BATTERY,
+        .n_samples = CONFIG_N_SAMPLES_BATTERY,
+        .channel = ADC1_CHANNEL_1,
+        .mqtt_topic = TOPIC_BATTERY_LEVEL,
+        .get_mv = get_adc_mv,
+    },
+    // bias params. Many of its parameters are not used, it is used to calculate irradiation value
+    {
+        .window_size = CONFIG_WINDOW_SIZE_IRRAD,
+        .sample_frequency = CONFIG_SAMPLE_FREQ_IRRAD,
+        .send_frenquency = CONFIG_SEND_FREQ_IRRAD,
+        .n_samples = CONFIG_N_SAMPLES_IRRAD,
+        .channel = ADC1_CHANNEL_6,
+        .mqtt_topic = "",
+        .get_mv = get_adc_mv,
+    },
+};
+
+struct send_sample_buffer adcs_send_buffers[N_ADC_MEASURES] = {
+    {
+        .ini = 0,
+        .cont = 0,
+    },
+    {
+        .ini = 0,
+        .cont = 0,
+    },
+};
+
+esp_timer_handle_t sampling_timer[N_ADC_MEASURES];
+esp_timer_create_args_t sample_timer_args[] = {
+    {
+        .callback = &sampling_timer_callback,
+        .name = "sampling_timer_irra_adc",
+        .arg = (void *)&IRRADIATION_ADC_INDEX,
+    },
+    {
+        .callback = &sampling_timer_callback,
+        .name = "sampling_timer_battery_adc",
+        .arg = (void *)&BATTERY_ADC_INDEX,
+    },
+};
+esp_timer_handle_t broker_sender_timer[N_ADC_MEASURES];
+esp_timer_create_args_t broker_sender_timer_args[] = {
+    {
+        .callback = &broker_sender_callback,
+        .name = "broker_timer_irra_adc",
+        .arg = (void *)&IRRADIATION_ADC_INDEX,
+    },
+    {
+        .callback = &broker_sender_callback,
+        .name = "broker_timer_battery_adc",
+        .arg = (void *)&BATTERY_ADC_INDEX,
+    },
+};
+
 
 int get_adc_mv(int *value, int adc_index) {
     int adc_val = adc1_get_raw(adc_params[adc_index].channel);
@@ -23,7 +99,7 @@ int get_irradiation_mv(int *value, int adc_index) {
 }
 
 
-static void sampeling_timer_callback(void * args){
+static void sampling_timer_callback(void * args){
     int *adc_index = (int *) args;
 
     int data, sample = 0;
@@ -149,24 +225,14 @@ int setup_adc_reader(){
 
     // timers configuration
     for(int i = 0; i < N_ADC_MEASURES; i++) {
-        // sampeling adc timer
-        const esp_timer_create_args_t sample_timer_args = {
-            .callback = &sampeling_timer_callback,
-            .name = "sampeling_timer",
-            .arg = (void *)i,
-        };
-        esp_timer_create(&sample_timer_args, &sampeling_timer[i]);
-        esp_timer_start_periodic(sampeling_timer[i], adc_params[i].sample_frequency*1000000);
+        // sampling adc timer
+        esp_timer_create(&sample_timer_args[i], &sampling_timer[i]);
+        esp_timer_start_periodic(sampling_timer[i], adc_params[i].sample_frequency*1000000);
 
         // broker sender timer
-        // ESP_LOGD(TAG, "Inicialazing broker sender timer\n");
-        // const esp_timer_create_args_t broker_sender_timer_args = {
-        //     .callback = &broker_sender_callback,
-        //     .name = "broker_sender_timer",
-        //     .arg = (void *)i,
-        // };
-        // esp_timer_create(&broker_sender_timer_args, &broker_sender_timer[i]);
-        // esp_timer_start_periodic(broker_sender_timer[i], adc_params[i].send_frenquency*1000000);
+        ESP_LOGD(TAG, "Inicialazing broker sender timer\n");
+        esp_timer_create(&broker_sender_timer_args[i], &broker_sender_timer[i]);
+        esp_timer_start_periodic(broker_sender_timer[i], adc_params[i].send_frenquency*1000000);
     }
 
     return 0;
@@ -215,14 +281,14 @@ int stop_broker_send_timers() {
 
 
 int change_sample_frequency(int sample_freq, int adc){
-    if (stop_timer(adc, sampeling_timer[adc]))
+    if (stop_timer(adc, sampling_timer[adc]))
         return 1;
 
     vTaskDelay(pdMS_TO_TICKS(500));
 
     adc_params[adc].sample_frequency = sample_freq;
 
-    if (start_timer(adc, sampeling_timer[adc], adc_params[adc].sample_frequency))
+    if (start_timer(adc, sampling_timer[adc], adc_params[adc].sample_frequency))
         return 1;
 
     ESP_LOGI(TAG, "Changed sample frequency to %d s in ADC %d", sample_freq, adc);
@@ -247,14 +313,14 @@ int change_broker_sender_frequency(int send_freq, int adc) {
 
 
 int change_sample_number(int n_samples, int adc) {
-    if (stop_timer(adc, sampeling_timer[adc]))
+    if (stop_timer(adc, sampling_timer[adc]))
         return 1;
     
     vTaskDelay(pdMS_TO_TICKS(500));
 
     adc_params[adc].n_samples = n_samples;
 
-    if (start_timer(adc, sampeling_timer[adc], adc_params[adc].sample_frequency))
+    if (start_timer(adc, sampling_timer[adc], adc_params[adc].sample_frequency))
         return 1;
 
     ESP_LOGI(TAG, "Changed sample number to %d in ADC %d", n_samples, adc);
