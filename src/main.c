@@ -29,9 +29,9 @@ static const char *TAG = "main";
 
 void app_main(void)
 {   
-    //Just redirect error logs
-    esp_log_level_set("*", ESP_LOG_ERROR);
-    redireccionaLogs();
+    // //Just redirect error logs
+    // esp_log_level_set("*", ESP_LOG_ERROR);
+    // redireccionaLogs();
 
     // Configuramos el gestor de energia
     esp_pm_config_esp32_t config = {
@@ -51,9 +51,11 @@ void app_main(void)
     /* Initialize NVS needed by Wi-Fi */
     ESP_ERROR_CHECK(nvs_flash_init());
 
-    //wifi provisioning
-    ESP_LOGI(TAG, "Starting WiFi SoftAP provisioning");
-    provisioning();
+    // //wifi provisioning
+    // ESP_LOGI(TAG, "Starting WiFi SoftAP provisioning");
+    // provisioning();
+
+    setup_adc_reader();
     
     vTaskSuspend(NULL);
 }
