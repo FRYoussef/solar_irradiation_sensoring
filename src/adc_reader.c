@@ -159,14 +159,14 @@ int setup_adc_reader(){
         esp_timer_start_periodic(sampeling_timer[i], adc_params[i].sample_frequency*1000000);
 
         // broker sender timer
-        ESP_LOGD(TAG, "Inicialazing broker sender timer\n");
-        const esp_timer_create_args_t broker_sender_timer_args = {
-            .callback = &broker_sender_callback,
-            .name = "broker_sender_timer",
-            .arg = (void *)i,
-        };
-        esp_timer_create(&broker_sender_timer_args, &broker_sender_timer[i]);
-        esp_timer_start_periodic(broker_sender_timer[i], adc_params[i].send_frenquency*1000000);
+        // ESP_LOGD(TAG, "Inicialazing broker sender timer\n");
+        // const esp_timer_create_args_t broker_sender_timer_args = {
+        //     .callback = &broker_sender_callback,
+        //     .name = "broker_sender_timer",
+        //     .arg = (void *)i,
+        // };
+        // esp_timer_create(&broker_sender_timer_args, &broker_sender_timer[i]);
+        // esp_timer_start_periodic(broker_sender_timer[i], adc_params[i].send_frenquency*1000000);
     }
 
     return 0;
