@@ -9,6 +9,9 @@
 
 #include "mqtt.h"
 
+static esp_mqtt_client_handle_t client;
+bool first_conexion_mqtt = true;
+
 static const char *TAG = "MQTTS";
 
                                                     // /location/board name/sensor metric/sensor number/config parameter  
