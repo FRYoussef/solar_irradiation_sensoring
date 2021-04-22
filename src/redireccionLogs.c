@@ -83,7 +83,7 @@ void redireccionaLogs(){
             .format_if_mount_failed = true,
             .allocation_unit_size = CONFIG_WL_SECTOR_SIZE
     };
-    ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount(base_path, "spiflash", &mount_config, &s_wl_handle));
+    ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount(base_path, "storage", &mount_config, &s_wl_handle));
 
     /*Redireccionamos la salida de los logs*/
     ESP_LOGI(TAG, "Opening file");
