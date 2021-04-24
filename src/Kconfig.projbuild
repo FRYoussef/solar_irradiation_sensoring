@@ -1,0 +1,201 @@
+menu "Solar Irradiation Configuration"    
+    menu "Broker"
+        config BROKER_URL
+            string "Broker URL"
+            default "mqtt://192.168.1.52"
+            help
+                URL of the broker to connect to
+
+        config BROKER_URL_FROM_STDIN
+            bool
+            default y if BROKER_URL = "FROM_STDIN"
+    endmenu
+
+    menu "Sensoring"
+        menu "Irradiation"
+            config SAMPLE_FREQ_IRRAD
+                int "irradiation sample frequency"
+                default 2
+                help
+                    sample frequency in seconds
+            
+            config SEND_FREQ_IRRAD
+                int "irradiation send frequency"
+                default 10
+                help
+                    send frequency in seconds
+
+            config N_SAMPLES_IRRAD
+                int "irradiation sample number"
+                default 10
+                help
+                    numero de mediciones para generar una muestra con su media
+
+            config WINDOW_SIZE_IRRAD
+                int "irradiation window size"
+                default 10
+                help
+                    window size
+        endmenu
+
+        menu "Battery level"
+                config SAMPLE_FREQ_BATTERY
+                int "battery level sample frequency"
+                default 2
+                help
+                    sample frequency in seconds
+            
+            config SEND_FREQ_BATTERY
+                int "battery level send frequency"
+                default 10
+                help
+                    send frequency in seconds
+
+            config N_SAMPLES_BATTERY
+                int "battery level sample number"
+                default 10
+                help
+                    numero de mediciones para generar una muestra con su media
+
+            config WINDOW_SIZE_BATTERY
+                int "battery level window size"
+                default 10
+                help
+                    window size
+        endmenu
+    endmenu
+
+    menu "Provisioning"
+
+        config EXAMPLE_SSID_SET_MAC
+            bool "Use MAC as SSID"
+            default y
+            help
+                Set SoftAP SSID as PROV_<MAC>.
+
+        config EXAMPLE_SSID
+            string "Wi-Fi SSID"
+            default "PROV_SSID"
+            depends on !EXAMPLE_SSID_SET_MAC
+            help
+                SSID (network name) for the example to connect to.
+
+        config EXAMPLE_PASS
+            string "Wi-Fi Password"
+            default "PROV_PASS"
+            help
+                Wi-Fi password (WPA or WPA2) for the example to use.
+
+        config EXAMPLE_USE_SEC_1
+            bool
+            default y
+            prompt "Use Security Version 1"
+            help
+                Security version 1 used Curve25519 key exchange for establishing
+                secure session between device and client during provisioning
+
+        config EXAMPLE_USE_POP
+            bool
+            depends on EXAMPLE_USE_SEC_1
+            default y
+            prompt "Use proof-of-possession"
+            help
+                Proof-of-possession can be optionally used to prove that the device is indeed
+                in possession of the user who is provisioning the device. This proof-of-possession
+                is internally used to generate the shared secret through key exchange.
+
+        config EXAMPLE_POP
+            string "Proof-of-possession"
+            default "abcd1234"
+            depends on EXAMPLE_USE_POP
+
+        config EXAMPLE_RESET_PROVISIONED
+            bool
+            default n
+            prompt "Reset provisioned status of the device"
+            help
+                This erases the NVS to reset provisioned status of the device on every reboot.
+                Provisioned status is determined by the Wi-Fi STA configuration, saved on the NVS.
+
+        config EXAMPLE_AP_RECONN_ATTEMPTS
+            int "Maximum AP connection attempts"
+            default 5
+            help
+                Set the maximum connection attempts to perform when connecting to a Wi-Fi AP.
+
+    endmenu
+
+    menu "Power managment"
+        menu "Deep sleep"
+            config DEEP_SLEEP
+                bool "Enable deep sleep mode"
+                default y
+
+            config HOUR_TO_SLEEP
+                int "Deep sleep start hour (0-23)"
+                default 22
+                range 0 23
+                help
+                    Hora de dormir al sistema.
+
+            config HOUR_TO_WAKEUP
+                int "Deep sleep wakeup hour (0-23)"
+                default 8
+                range 0 23
+                help
+                    Hora de despertar al sistema.
+
+            config SHUT_DOWN_POWER_PIN
+                bool "Shuts down the board power pin to reduce consumption during deep sleep mode"
+                default n
+        endmenu
+
+		choice EXAMPLE_MAX_CPU_FREQ
+			prompt "Maximum CPU frequency"
+			default EXAMPLE_MAX_CPU_FREQ_240
+			help
+				Maximum CPU frequency to use for dynamic frequency scaling.
+
+			config EXAMPLE_MAX_CPU_FREQ_80
+				bool "80 MHz"
+			config EXAMPLE_MAX_CPU_FREQ_160
+				bool "160 MHz"
+			config EXAMPLE_MAX_CPU_FREQ_240
+				bool "240 MHz"
+		endchoice
+
+		config MAX_CPU_FREQ_MHZ
+			int
+			default 80 if EXAMPLE_MAX_CPU_FREQ_80
+			default 160 if EXAMPLE_MAX_CPU_FREQ_160
+			default 240 if EXAMPLE_MAX_CPU_FREQ_240
+
+
+		choice EXAMPLE_MIN_CPU_FREQ
+			prompt "Minimum CPU frequency"
+			default EXAMPLE_MIN_CPU_FREQ_40M
+			help
+				Minimum CPU frequency to use for dynamic frequency scaling.
+
+			config EXAMPLE_MIN_CPU_FREQ_40M
+				bool "40 MHz"
+			config EXAMPLE_MIN_CPU_FREQ_20M
+				bool "20 MHz"
+			config EXAMPLE_MIN_CPU_FREQ_10M
+				bool "10 MHz"
+			config EXAMPLE_MIN_CPU_FREQ_26M
+				bool "26 MHz"
+			config EXAMPLE_MIN_CPU_FREQ_13M
+				bool "13 MHz"
+		endchoice
+
+        config MIN_CPU_FREQ_MHZ
+            int
+            default 40 if EXAMPLE_MIN_CPU_FREQ_40M
+            default 20 if EXAMPLE_MIN_CPU_FREQ_20M
+            default 10 if EXAMPLE_MIN_CPU_FREQ_10M
+            default 26 if EXAMPLE_MIN_CPU_FREQ_26M
+            default 13 if EXAMPLE_MIN_CPU_FREQ_13M
+
+    endmenu
+endmenu
