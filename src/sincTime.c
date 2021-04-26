@@ -176,7 +176,11 @@ void sincTimeAndSleep(void) {
         .name = "periodic"
     }; 
     esp_timer_create(&deep_sleep_timer_args, &deep_sleep_timer);
-    long long int us_hasta_dormir = 1000000*60*(tiempo.minutos + 60*tiempo.horas);
+    long long int segundos_dormir = (long long int)(tiempo.minutos + 60*tiempo.horas);
+    long long int us_hasta_dormir = (long long int) 1000000*60*segundos_dormir;
+    ESP_LOGI(TAG, "Iniciamos el timer de deep sleep en %lld us",us_hasta_dormir);
+
+    //ESP_LOGI(TAG,"Programado timer para deep sleep en %d us\n",us_hasta_dormir);
     esp_timer_start_once(deep_sleep_timer, us_hasta_dormir);
 }
 

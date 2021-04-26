@@ -54,4 +54,5 @@ struct send_sample_buffer {
     int ini;
     int cont;
     int *samples;
+    char payload[20];
 };

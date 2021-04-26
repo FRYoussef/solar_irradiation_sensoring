@@ -7,6 +7,9 @@ const int IRRADIATION_ADC_INDEX = 0;
 const int BATTERY_ADC_INDEX = 1;
 const int BIAS_ADC_INDEX = 2; // used for irradiation, always keep it with the highest index
 
+esp_err_t power_pin_down(void);
+esp_err_t power_pin_up(void);
+
 // inizialise for each adc its parameters
 static struct adc_config_params adc_params[N_ADC] = {
     // solar panel params
@@ -103,7 +106,8 @@ static void sampling_timer_callback(void * args){
     int *adc_index = (int *) args;
 
     int data, sample = 0;
-
+    if (*adc_index == IRRADIATION_ADC_INDEX)
+        power_pin_up();
     for(int i= 0 ; i < adc_params[*adc_index].n_samples; i++){
         if (adc_params[*adc_index].get_mv(&data, *adc_index))
             ESP_LOGE(TAG, "Error reading ADC with index %d", *adc_index);
@@ -111,41 +115,36 @@ static void sampling_timer_callback(void * args){
             sample += data;
     }
     sample = (int) sample / adc_params[*adc_index].n_samples;
-
+    if (*adc_index == IRRADIATION_ADC_INDEX)
+        power_pin_down();
     ESP_LOGI(TAG, "Sample from ADC(%d) = %d", *adc_index, sample);    
     
     //Save the taken sample in the circular buffer
-    adcs_send_buffers[*adc_index].samples[(adcs_send_buffers[*adc_index].ini 
-            + adcs_send_buffers[*adc_index].cont) % adc_params[*adc_index].window_size] = sample;
-
-    if (adcs_send_buffers[*adc_index].cont == adc_params[*adc_index].window_size) {
-        // If buffer is full, rewrite first sample
-        adcs_send_buffers[*adc_index].ini = adcs_send_buffers[*adc_index].ini % adc_params[*adc_index].window_size;
-    } 
-    else {
-        adcs_send_buffers[*adc_index].cont++;
-    }
+    adcs_send_buffers[*adc_index].samples[ adcs_send_buffers[*adc_index].cont % adc_params[*adc_index].window_size   ] = sample;
+    adcs_send_buffers[*adc_index].cont++;
 }
 
 
 static void broker_sender_callback(void * args){
     int *adc_index = (int *) args;
-
+    int nsamples;
     //See if there are samples to send
     if (adcs_send_buffers[*adc_index].cont > 0){
         int mean = 0;
 
+        nsamples  = (adcs_send_buffers[*adc_index].cont > adc_params[*adc_index].window_size  )?adc_params[*adc_index].window_size :adcs_send_buffers[*adc_index].cont;
         // made the sample mean
-        for (int i = 0; i < adcs_send_buffers[*adc_index].cont; i++)
+        for (int i = 0; i < nsamples; i++)
             mean += adcs_send_buffers[*adc_index].samples[i];
 
-        mean /= adcs_send_buffers[*adc_index].cont;
+        mean = mean / nsamples;
 
-        // Codify data with CBOR format and send it to the broker
-        char str[50];
-        sprintf(str, "%d", mean);
-        ESP_LOGD(TAG, "Send it to the broker\n");
-        enviar_al_broker(adc_params[*adc_index].mqtt_topic, (char *)&str, 0, 1, 0);
+        adcs_send_buffers[*adc_index].cont = 0;
+        
+       
+        sprintf(adcs_send_buffers[*adc_index].payload, "%d", mean);
+        ESP_LOGI(TAG, "Send it to the broker: %s (int %d)\n", adcs_send_buffers[*adc_index].payload, mean);
+        enviar_al_broker(adc_params[*adc_index].mqtt_topic, (char *)&adcs_send_buffers[*adc_index].payload, 0, 1, 0);
     } 
     else {
         ESP_LOGW(TAG, "There are still not data to send\n");
@@ -225,6 +224,8 @@ int setup_adc_reader(){
 
     // timers configuration
     for(int i = 0; i < N_ADC_MEASURES; i++) {
+
+    
         // sampling adc timer
         esp_timer_create(&sample_timer_args[i], &sampling_timer[i]);
         esp_timer_start_periodic(sampling_timer[i], adc_params[i].sample_frequency*1000000);
@@ -272,7 +273,6 @@ int stop_timer(int adc, esp_timer_handle_t timer){
 
 int stop_broker_send_timers() {
     int ret = 0;
-    
     for(int i = 0; i < N_ADC_MEASURES; i++)
         ret |= stop_timer(i, broker_sender_timer[i]);
 
