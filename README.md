@@ -7,6 +7,7 @@ Solar irradiation sensoring using ESP-IDF
     - Partition Table  → Partition Table → Custom partition table CSV
     - Component config → Power Management → Support for Power Management → Enable DFS at startup
     - Component config → FreeRTOS → Tickless Idle Support
+    - Serial flasher config → Flash size → 4MB
 
 ## WiFi configuration
 Download your WiFi certificate into ´src´ folder. For example, for UCM eduroam wifi you can download it from [here](https://ssii.ucm.es/file/eduroam). Next, change its name to "wpa2_ca.pem".
