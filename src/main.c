@@ -20,19 +20,16 @@
 
 #include "freertos/task.h"
 
-extern void provisioning(void);
+extern void initialise_wifi(void);
 extern void redireccionaLogs(void);
-
-extern int setup_adc_reader();
 
 static const char *TAG = "main";
 
 void app_main(void)
 {   
     //Just redirect error logs
-    //esp_log_level_set("*", ESP_LOG_ERROR);
-    esp_log_level_set("*", ESP_LOG_VERBOSE);
-    //redireccionaLogs();
+    esp_log_level_set("*", ESP_LOG_ERROR);
+    redireccionaLogs();
 
     // Configuramos el gestor de energia
     esp_pm_config_esp32_t config = {
@@ -52,9 +49,8 @@ void app_main(void)
     /* Initialize NVS needed by Wi-Fi */
     ESP_ERROR_CHECK(nvs_flash_init());
 
-    //wifi provisioning
-    ESP_LOGI(TAG, "Starting WiFi SoftAP provisioning");
-    provisioning();
+    ESP_LOGI(TAG, "Starting WiFi for WPA2 enterprise conexion");
+    initialise_wifi();
     
     vTaskSuspend(NULL);
 }
