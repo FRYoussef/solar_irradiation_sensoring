@@ -7,9 +7,6 @@ const int IRRADIATION_ADC_INDEX = 0;
 const int BATTERY_ADC_INDEX = 1;
 const int BIAS_ADC_INDEX = 2; // used for irradiation, always keep it with the highest index
 
-esp_err_t power_pin_down(void);
-esp_err_t power_pin_up(void);
-
 // inizialise for each adc its parameters
 static struct adc_config_params adc_params[N_ADC] = {
     // solar panel params

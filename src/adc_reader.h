@@ -38,6 +38,8 @@ int get_adc_mv(int *value, int adc_index);
 int get_irradiation_mv(int *value, int adc_index);
 static void sampling_timer_callback(void *);
 static void broker_sender_callback(void *);
+esp_err_t power_pin_down(void);
+esp_err_t power_pin_up(void);
 
 struct adc_config_params {
     int window_size;
