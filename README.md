@@ -11,6 +11,8 @@ Solar irradiation sensoring using ESP-IDF
 ## WiFi configuration
 Download your WiFi certificate into ´src´ folder. For example, for UCM eduroam wifi you can download it from [here](https://ssii.ucm.es/file/eduroam). Next, change its name to "wpa2_ca.pem".
 
+For the sake of simplicity "wpa2_client.crt" and "wpa2_client.key" are provided for testing. However, you should use your own private key.
+
 Via menuconfig, set the following parameters (example of eduroam WiFi):
 - SSID: eduroam
 - Validate server: active
