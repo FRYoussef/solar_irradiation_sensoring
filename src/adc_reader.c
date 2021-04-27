@@ -1,11 +1,14 @@
 #include "adc_reader.h"
 
+#define eos(s) ((s) + strlen(s))
+
 static const char *TAG = "adc_reader";
 extern void enviar_al_broker(const char *topic, const char *data, int len, int qos, int retain);
 
 const int IRRADIATION_ADC_INDEX = 0;
 const int BATTERY_ADC_INDEX = 1;
 const int BIAS_ADC_INDEX = 2; // used for irradiation, always keep it with the highest index
+const int NFIELDS = 2; // number of entries of adc_params to read to send to the MQTT broker 
 
 esp_err_t power_pin_down(void);
 esp_err_t power_pin_up(void);
@@ -19,8 +22,10 @@ static struct adc_config_params adc_params[N_ADC] = {
         .send_frenquency = CONFIG_SEND_FREQ_IRRAD,
         .n_samples = CONFIG_N_SAMPLES_IRRAD,
         .channel = ADC1_CHANNEL_0,
-        .mqtt_topic = TOPIC_IRRADIATION,
+        .influxdb_field = FIELD_IRRADIATION,
         .get_mv = get_irradiation_mv,
+        .last_mean = 0,
+
     },
     // battery params
     {
@@ -29,8 +34,10 @@ static struct adc_config_params adc_params[N_ADC] = {
         .send_frenquency = CONFIG_SEND_FREQ_BATTERY,
         .n_samples = CONFIG_N_SAMPLES_BATTERY,
         .channel = ADC1_CHANNEL_1,
-        .mqtt_topic = TOPIC_BATTERY_LEVEL,
+        .influxdb_field = FIELD_BATTERY,
         .get_mv = get_adc_mv,
+        .last_mean = 0,
+
     },
     // bias params. Many of its parameters are not used, it is used to calculate irradiation value
     {
@@ -39,8 +46,9 @@ static struct adc_config_params adc_params[N_ADC] = {
         .send_frenquency = CONFIG_SEND_FREQ_IRRAD,
         .n_samples = CONFIG_N_SAMPLES_IRRAD,
         .channel = ADC1_CHANNEL_6,
-        .mqtt_topic = "",
+        .influxdb_field = "",
         .get_mv = get_adc_mv,
+        .last_mean = 0,
     },
 };
 
@@ -62,7 +70,7 @@ esp_timer_create_args_t sample_timer_args[] = {
         .name = "sampling_timer_irra_adc",
         .arg = (void *)&IRRADIATION_ADC_INDEX,
     },
-    {
+   {
         .callback = &sampling_timer_callback,
         .name = "sampling_timer_battery_adc",
         .arg = (void *)&BATTERY_ADC_INDEX,
@@ -72,14 +80,14 @@ esp_timer_handle_t broker_sender_timer[N_ADC_MEASURES];
 esp_timer_create_args_t broker_sender_timer_args[] = {
     {
         .callback = &broker_sender_callback,
-        .name = "broker_timer_irra_adc",
-        .arg = (void *)&IRRADIATION_ADC_INDEX,
+        .name = "broker_timer_adc",
+        .arg = (void *)&NFIELDS,
     },
-    {
-        .callback = &broker_sender_callback,
-        .name = "broker_timer_battery_adc",
-        .arg = (void *)&BATTERY_ADC_INDEX,
-    },
+//    {
+//        .callback = &broker_sender_callback,
+//        .name = "broker_timer_battery_adc",
+//        .arg = (void *)&BATTERY_ADC_INDEX,
+//    },
 };
 
 
@@ -124,31 +132,56 @@ static void sampling_timer_callback(void * args){
     adcs_send_buffers[*adc_index].cont++;
 }
 
+static char* buildInfluxDBString(int nfields) {
+    char* str = (char*) malloc(MAX_INFLUXDB_STRING);
+    sprintf(str,INFLUXDB_MEASUREMENT);
+    sprintf(eos(str),INFLUXDB_LOCATION);
+    for (int i=0; i < (nfields-1); i++ )
+        sprintf(eos(str),"%s=%d,",adc_params[i].influxdb_field,adc_params[i].last_mean);
+    
+    // last field without comma
+    sprintf(eos(str),"%s=%d ",adc_params[nfields-1].influxdb_field,adc_params[nfields-1].last_mean);
 
+    // TODO include timestamp in nanoseconds
+
+    return str;
+
+}
+//
 static void broker_sender_callback(void * args){
     int *adc_index = (int *) args;
     int nsamples;
+    int nfields = *adc_index;
+    int i;
+    char* payload;
+
     //See if there are samples to send
-    if (adcs_send_buffers[*adc_index].cont > 0){
-        int mean = 0;
+    for (i=0; i < nfields; i++) {
+        if (adcs_send_buffers[i].cont > 0){
+            int mean = 0;
 
-        nsamples  = (adcs_send_buffers[*adc_index].cont > adc_params[*adc_index].window_size  )?adc_params[*adc_index].window_size :adcs_send_buffers[*adc_index].cont;
-        // made the sample mean
-        for (int i = 0; i < nsamples; i++)
-            mean += adcs_send_buffers[*adc_index].samples[i];
+            nsamples  = (adcs_send_buffers[i].cont > adc_params[i].window_size  )?adc_params[i].window_size :adcs_send_buffers[i].cont;
+            // made the sample mean
+            for (int j = 0; j < nsamples; j++)
+                mean += adcs_send_buffers[i].samples[j];
 
-        mean = mean / nsamples;
-
-        adcs_send_buffers[*adc_index].cont = 0;
-        
-       
-        sprintf(adcs_send_buffers[*adc_index].payload, "%d", mean);
-        ESP_LOGI(TAG, "Send it to the broker: %s (int %d)\n", adcs_send_buffers[*adc_index].payload, mean);
-        enviar_al_broker(adc_params[*adc_index].mqtt_topic, (char *)&adcs_send_buffers[*adc_index].payload, 0, 1, 0);
-    } 
-    else {
-        ESP_LOGW(TAG, "There are still not data to send\n");
+            mean = mean / nsamples;
+            adc_params[i].last_mean =mean;
+            adcs_send_buffers[i].cont = 0;
+        } 
+        else {
+            adc_params[i].last_mean =-1;          
+        }
     }
+
+    if ( (payload=buildInfluxDBString(nfields) ) == NULL  ) {
+        ESP_LOGW(TAG, "There are still not data to send\n");
+        return;
+    }
+
+    //sprintf(adcs_send_buffers[*adc_index].payload, "%d", mean);
+    ESP_LOGI(TAG, "Send it to the broker: %s \n", payload );
+    enviar_al_broker(MQTT_TOPIC, (char *)payload, 0, 1, 0);
 }
 
 
@@ -229,12 +262,13 @@ int setup_adc_reader(){
         // sampling adc timer
         esp_timer_create(&sample_timer_args[i], &sampling_timer[i]);
         esp_timer_start_periodic(sampling_timer[i], adc_params[i].sample_frequency*1000000);
-
-        // broker sender timer
-        ESP_LOGD(TAG, "Inicialazing broker sender timer\n");
-        esp_timer_create(&broker_sender_timer_args[i], &broker_sender_timer[i]);
-        esp_timer_start_periodic(broker_sender_timer[i], adc_params[i].send_frenquency*1000000);
     }
+
+    // broker sender timer. Just use one callback and send all the data (irradiation and battery
+    // in the same message.
+    ESP_LOGD(TAG, "Inicialazing broker sender timer\n");
+    esp_timer_create(&broker_sender_timer_args[0], &broker_sender_timer[0]);
+    esp_timer_start_periodic(broker_sender_timer[0], adc_params[0].send_frenquency*1000000);
 
     return 0;
 }

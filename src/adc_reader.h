@@ -30,9 +30,19 @@
 #define ADC_VREF 1100
 #define ADC_ATTENUATION ADC_ATTEN_DB_11
 
+// INFLUXDB Format 
+#define MAX_INFLUXDB_FIELDS 4
+#define MAX_INFLUXDB_STRING 128
+#define INFLUXDB_MEASUREMENT "cabahla"
+#define INFLUXDB_LOCATION ",location=fisicas "
+#define FIELD_IRRADIATION "irradiation"
+#define FIELD_BATTERY "battery"
+
+
 // MQTT topics
 #define TOPIC_IRRADIATION "/ciu/lopy4/irradiation/1"
 #define TOPIC_BATTERY_LEVEL "/ciu/lopy4/battery_level/1"
+#define MQTT_TOPIC "/ciu/lopy4/irradiation/1"
 
 int get_adc_mv(int *value, int adc_index);
 int get_irradiation_mv(int *value, int adc_index);
@@ -45,9 +55,10 @@ struct adc_config_params {
     int send_frenquency;
     int n_samples;
     int channel;
-    char *mqtt_topic;
+    char *influxdb_field;
     esp_adc_cal_characteristics_t adc_chars;
     int (*get_mv)(int *, int);
+    int last_mean;
 };
 
 struct send_sample_buffer {
