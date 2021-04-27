@@ -26,7 +26,6 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
-#include "nvs_flash.h"
 #include "esp_netif.h"
 
 extern void mqtt_app_start(void);
@@ -104,8 +103,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-static void initialise_wifi(void)
-{
+void initialise_wifi(void) {
 #ifdef CONFIG_EXAMPLE_VALIDATE_SERVER_CERT
     unsigned int ca_pem_bytes = ca_pem_end - ca_pem_start;
 #endif /* CONFIG_EXAMPLE_VALIDATE_SERVER_CERT */
