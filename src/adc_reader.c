@@ -1,9 +1,10 @@
 #include "adc_reader.h"
+#include "mqtt.h"
 
 #define eos(s) ((s) + strlen(s))
 
 static const char *TAG = "adc_reader";
-extern void enviar_al_broker(const char *topic, const char *data, int len, int qos, int retain);
+
 
 const int IRRADIATION_ADC_INDEX = 0;
 const int BATTERY_ADC_INDEX = 1;
@@ -181,7 +182,8 @@ static void broker_sender_callback(void * args){
 
     //sprintf(adcs_send_buffers[*adc_index].payload, "%d", mean);
     ESP_LOGI(TAG, "Send it to the broker: %s \n", payload );
-    enviar_al_broker(MQTT_TOPIC, (char *)payload, 0, 1, 0);
+    mqtt_send_data(MQTT_TOPIC, payload, 0, 1, 0);
+    free(payload);
 }
 
 

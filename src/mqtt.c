@@ -152,7 +152,8 @@ void mqtt_app_start(void)
 }
 
 
-void enviar_al_broker(const char *topic, char *data, int len, int qos, int retain){
+void mqtt_send_data(const char *topic, char *data, int len, int qos, int retain){
     esp_mqtt_client_publish(client, topic, data, len, qos, retain);
 }
+
     
