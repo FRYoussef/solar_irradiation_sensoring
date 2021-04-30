@@ -115,10 +115,13 @@ void initialise_wifi(void) {
 
     ESP_ERROR_CHECK(esp_netif_init());
     wifi_event_group = xEventGroupCreate();
+    esp_event_loop_delete_default();
     ESP_ERROR_CHECK(esp_event_loop_create_default());
+    //esp_event_loop_create_default();
     sta_netif = esp_netif_create_default_wifi_sta();
+    ESP_LOGI(TAG, "NETIF create called ...");
     assert(sta_netif);
-
+    ESP_LOGI(TAG, "NETIF create correctly. Now init WIFI ...");
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
     ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL) );
@@ -146,6 +149,8 @@ void initialise_wifi(void) {
 #if defined CONFIG_EXAMPLE_EAP_METHOD_PEAP || CONFIG_EXAMPLE_EAP_METHOD_TTLS
     ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_username((uint8_t *)EXAMPLE_EAP_USERNAME, strlen(EXAMPLE_EAP_USERNAME)) );
     ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_password((uint8_t *)EXAMPLE_EAP_PASSWORD, strlen(EXAMPLE_EAP_PASSWORD)) );
+    ESP_LOGI(TAG, "Credentials %s...%s", EXAMPLE_EAP_USERNAME,EXAMPLE_EAP_PASSWORD);
+
 #endif /* CONFIG_EXAMPLE_EAP_METHOD_PEAP || CONFIG_EXAMPLE_EAP_METHOD_TTLS */
 
 #if defined CONFIG_EXAMPLE_EAP_METHOD_TTLS
