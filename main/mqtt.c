@@ -141,8 +141,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 void mqtt_app_start(void)
 {
     esp_mqtt_client_config_t mqtt_cfg = {
-        .uri = BROKER_URI, //BROKER_URL
-        //.uri =  "mqtt://broker.hivemq.com",
+        //.uri = BROKER_URI, //BROKER_URL
+        .uri =  "mqtt://urbion.dacya.ucm.es",
         //.cert_pem = (const char *)mqtt_eclipse_org_pem_start,
     };
 
@@ -152,7 +152,8 @@ void mqtt_app_start(void)
 }
 
 
-void enviar_al_broker(const char *topic, char *data, int len, int qos, int retain){
+void mqtt_send_data(const char *topic, char *data, int len, int qos, int retain){
     esp_mqtt_client_publish(client, topic, data, len, qos, retain);
 }
+
     
