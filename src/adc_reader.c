@@ -245,7 +245,7 @@ int adcs_setup(void) {
 
 int setup_adc_reader(){
     struct timeval tv_now;
-	int64_t delta_us;
+	int64_t delta_ms;
 
     // allocate memory for send buffers
     for(int i = 0; i < N_ADC_MEASURES; i++)
@@ -270,8 +270,8 @@ int setup_adc_reader(){
     }
 
     gettimeofday(&tv_now, NULL);
-	delta_us = ((int64_t)(tv_now.tv_sec/60)*60 + 1) * 1000000 - (int64_t)tv_now.tv_usec;
-    vTaskDelay((delta_us / 1000) / portTICK_PERIOD_MS);
+	delta_ms = ((int64_t)(tv_now.tv_sec/60)*60 + 1) * 1000 - (int64_t)tv_now.tv_usec/1000;
+    vTaskDelay(delta_ms / portTICK_PERIOD_MS);
 
     // timers configuration
     for(int i = 0; i < N_ADC_MEASURES; i++) {
