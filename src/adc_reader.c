@@ -2,6 +2,7 @@
 #include "mqtt.h"
 
 #define eos(s) ((s) + strlen(s))
+#define BATTERY_ADC_GAIN 3 // We meassure a fraction of the battery voltage
 
 static const char *TAG = "adc_reader";
 
@@ -36,7 +37,7 @@ static struct adc_config_params adc_params[N_ADC] = {
         .n_samples = CONFIG_N_SAMPLES_BATTERY,
         .channel = ADC1_CHANNEL_1,
         .influxdb_field = FIELD_BATTERY,
-        .get_mv = get_adc_mv,
+        .get_mv = get_battery_mv,
         .last_mean = 0,
 
     },
@@ -98,15 +99,18 @@ int get_adc_mv(int *value, int adc_index) {
     return 0;
 }
 
+int get_battery_mv(int *value, int adc_index) {
+    get_adc_mv(value, IRRADIATION_ADC_INDEX);
+	*value *= BATTERY_ADC_GAIN;
+	return 0;
+}
+
 
 int get_irradiation_mv(int *value, int adc_index) {
     int panel_mv, bias_mv;
-    
     get_adc_mv(&panel_mv, IRRADIATION_ADC_INDEX);
     get_adc_mv(&bias_mv, BIAS_ADC_INDEX);
-
     *value = panel_mv - bias_mv;
-
     return 0;
 }
 
