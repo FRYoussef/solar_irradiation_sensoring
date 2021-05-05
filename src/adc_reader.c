@@ -146,9 +146,13 @@ static char* buildInfluxDBString(int nfields) {
         sprintf(eos(str),"%s=%d,",adc_params[i].influxdb_field,adc_params[i].last_mean);
 
     // last field without comma
-    sprintf(eos(str),"%s=%d ",adc_params[nfields-1].influxdb_field,adc_params[nfields-1].last_mean);
+    sprintf(eos(str),"%s=%d ", adc_params[nfields-1].influxdb_field, adc_params[nfields-1].last_mean);
 
     // TODO include timestamp in nanoseconds
+	struct timeval tv_now;
+	gettimeofday(&tv_now, NULL);
+	int64_t time_ns = ((int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec) * 1000;
+    sprintf(eos(str),"%lld", time_ns);
 
     return str;
 
