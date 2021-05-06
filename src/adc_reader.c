@@ -142,6 +142,7 @@ static char* buildInfluxDBString(int nfields) {
     char* str = (char*) malloc(MAX_INFLUXDB_STRING);
     sprintf(str,INFLUXDB_MEASUREMENT);
     sprintf(eos(str),INFLUXDB_LOCATION);
+    sprintf(eos(str)," "); // space between TAGS and FILEDS
     for (int i=0; i < (nfields-1); i++ )
         sprintf(eos(str),"%s=%d,",adc_params[i].influxdb_field,adc_params[i].last_mean);
 
@@ -270,8 +271,11 @@ int setup_adc_reader(){
     }
 
     gettimeofday(&tv_now, NULL);
-	delta_ms = ((int64_t)(tv_now.tv_sec/60)*60 + 1) * 1000 - (int64_t)tv_now.tv_usec/1000;
+	//delta_ms = ((int64_t)(tv_now.tv_sec/60)*60 + 1) * 1000 - (int64_t)tv_now.tv_usec/1000;
+    delta_ms = ((int64_t)(tv_now.tv_sec%60))* 1000 -  ((int64_t)tv_now.tv_usec/1000);
+    ESP_LOGI(TAG, "Wait for delta_ms before programming timers: %li ms ", (long)delta_ms);
     vTaskDelay(delta_ms / portTICK_PERIOD_MS);
+    ESP_LOGI(TAG, "Done. Now programming timers");
 
     // timers configuration
     for(int i = 0; i < N_ADC_MEASURES; i++) {

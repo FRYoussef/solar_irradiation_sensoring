@@ -81,7 +81,7 @@ void updateDeepSleepTimer(){
     struct tiempo tiempo  = tiempoHastaDormir(timeinfo);
     long long int us_hasta_dormir = 1000000*60*(tiempo.minutos + 60*tiempo.horas);
     ESP_LOGI(TAG, "Cambio: hora de dormir = %d, hora de despertar = %d", HOUR_TO_SLEEP, HOUR_TO_WAKEUP);
-    ESP_LOGI(TAG, "Iniciamos el timer de deep sleep %d horas y %d minutos", tiempo.horas, tiempo.minutos);
+    ESP_LOGI(TAG, "Iniciamos el timer de deep sleep %d horas y %d minutos (%lld us)", tiempo.horas, tiempo.minutos,us_hasta_dormir);
     esp_timer_start_once(deep_sleep_timer, us_hasta_dormir);
 }
 
