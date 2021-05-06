@@ -137,6 +137,7 @@ static char* buildInfluxDBString(int nfields) {
     char* str = (char*) malloc(MAX_INFLUXDB_STRING);
     sprintf(str,INFLUXDB_MEASUREMENT);
     sprintf(eos(str),INFLUXDB_LOCATION);
+    sprintf(eos(str)," ");
     for (int i=0; i < (nfields-1); i++ )
         sprintf(eos(str),"%s=%d,",adc_params[i].influxdb_field,adc_params[i].last_mean);
     
