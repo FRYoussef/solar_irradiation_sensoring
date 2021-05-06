@@ -271,8 +271,9 @@ int setup_adc_reader(){
     }
 
     gettimeofday(&tv_now, NULL);
-	//delta_ms = ((int64_t)(tv_now.tv_sec/60)*60 + 1) * 1000 - (int64_t)tv_now.tv_usec/1000;
-    delta_ms = ((int64_t)(tv_now.tv_sec%60))* 1000 -  ((int64_t)tv_now.tv_usec/1000);
+    delta_ms = (60 - (int64_t)(tv_now.tv_sec%60))* 1000 -  ((int64_t)tv_now.tv_usec/1000);
+	if (delta_ms < 0)
+		delta_ms = 0;
     ESP_LOGI(TAG, "Wait for delta_ms before programming timers: %li ms ", (long)delta_ms);
     vTaskDelay(delta_ms / portTICK_PERIOD_MS);
     ESP_LOGI(TAG, "Done. Now programming timers");
