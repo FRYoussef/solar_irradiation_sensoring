@@ -142,7 +142,7 @@ void mqtt_app_start(void)
 {
     esp_mqtt_client_config_t mqtt_cfg = {
         //.uri = BROKER_URI, //BROKER_URL
-        .uri =  "mqtt://urbion.dacya.ucm.es",
+        .uri =  "mqtt://urbion.dacya.ucm.es:5222",
         //.cert_pem = (const char *)mqtt_eclipse_org_pem_start,
     };
 
