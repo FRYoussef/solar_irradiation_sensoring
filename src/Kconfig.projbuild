@@ -2,7 +2,7 @@ menu "Solar Irradiation Configuration"
     menu "Broker"
         config BROKER_URL
             string "Broker URL"
-            default "mqtt://192.168.1.52"
+            default "mqtt://urbion.dacya.ucm.es:5222"
             help
                 URL of the broker to connect to
 
