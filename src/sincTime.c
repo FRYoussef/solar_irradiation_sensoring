@@ -31,6 +31,12 @@ esp_timer_handle_t deep_sleep_timer;
 
 static void obtain_time(void);
 static void initialize_sntp(void);
+static void deep_sleep_timer_callback(void * args);
+
+const esp_timer_create_args_t deep_sleep_timer_args = {
+        .callback = &deep_sleep_timer_callback,
+        .name = "periodic"
+}; 
 
 #ifdef CONFIG_SNTP_TIME_SYNC_METHOD_CUSTOM
 void sntp_sync_time(struct timeval *tv)
@@ -79,7 +85,7 @@ void updateDeepSleepTimer(){
     tzset();
     localtime_r(&now, &timeinfo);
     struct tiempo tiempo  = tiempoHastaDormir(timeinfo);
-    long long int us_hasta_dormir = 1000000*60*(tiempo.minutos + 60*tiempo.horas);
+    uint64_t us_hasta_dormir = 1000000*60*(tiempo.minutos + 60*tiempo.horas);
     ESP_LOGI(TAG, "Cambio: hora de dormir = %d, hora de despertar = %d", HOUR_TO_SLEEP, HOUR_TO_WAKEUP);
     ESP_LOGI(TAG, "Iniciamos el timer de deep sleep %d horas y %d minutos (%lld us)", tiempo.horas, tiempo.minutos,us_hasta_dormir);
     esp_timer_start_once(deep_sleep_timer, us_hasta_dormir);
@@ -91,7 +97,7 @@ void time_sync_notification_cb(struct timeval *tv)
 }
 
 static void deep_sleep_timer_callback(void * args){
-    int32_t horas = 0;
+    uint64_t horas = 0;
     //Calculo cuanto tiempo duermo
     if (HOUR_TO_SLEEP < HOUR_TO_WAKEUP){
         //En el mismo día
@@ -99,9 +105,9 @@ static void deep_sleep_timer_callback(void * args){
     } else {
         horas = 24 - HOUR_TO_SLEEP + HOUR_TO_WAKEUP;
     }
-    ESP_LOGI(TAG, "Voy a dormir %d horas", horas);
-    long long int sleep_time = horas * 60 * 60 * 1000 * 1000;
-
+   
+    uint64_t sleep_time = (uint64_t) (horas * 60 * 60 * 1000 * 1000);
+     ESP_LOGI(TAG, "Voy a dormir %llu horas seguidas. %llu us", horas, sleep_time);
 #ifdef CONFIG_SHUT_DOWN_POWER_PIN
     power_pin_down();
 #endif
@@ -171,13 +177,10 @@ void sincTimeAndSleep(void) {
     //Calculo cuánto queda hasta la hora de dormir y pongo un timer
     struct tiempo tiempo = tiempoHastaDormir(timeinfo);
     ESP_LOGI(TAG, "Iniciamos el timer de deep sleep %d horas y %d minutos", tiempo.horas, tiempo.minutos);
-    const esp_timer_create_args_t deep_sleep_timer_args = {
-        .callback = &deep_sleep_timer_callback,
-        .name = "periodic"
-    }; 
+
     esp_timer_create(&deep_sleep_timer_args, &deep_sleep_timer);
-    long long int segundos_dormir = (long long int)(tiempo.minutos + 60*tiempo.horas);
-    long long int us_hasta_dormir = (long long int) 1000000*60*segundos_dormir;
+    uint64_t minutos_dormir = (long long int)(tiempo.minutos + 60*tiempo.horas);
+    uint64_t us_hasta_dormir = (long long int) 1000000*60*minutos_dormir;
     ESP_LOGI(TAG, "Iniciamos el timer de deep sleep en %lld us",us_hasta_dormir);
 
     //ESP_LOGI(TAG,"Programado timer para deep sleep en %d us\n",us_hasta_dormir);

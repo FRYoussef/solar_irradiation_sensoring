@@ -34,7 +34,7 @@
 #define MAX_INFLUXDB_FIELDS 4
 #define MAX_INFLUXDB_STRING 128
 #define INFLUXDB_MEASUREMENT "cabahla"
-#define INFLUXDB_LOCATION ",location=timestamp "
+#define INFLUXDB_LOCATION ",location=dormilon"
 #define FIELD_IRRADIATION "irradiation"
 #define FIELD_BATTERY "battery"
 
