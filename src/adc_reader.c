@@ -120,8 +120,10 @@ static void sampling_timer_callback(void * args){
     int *adc_index = (int *) args;
 
     int data, sample = 0;
-    if (*adc_index == IRRADIATION_ADC_INDEX)
+    if (*adc_index == IRRADIATION_ADC_INDEX) {
         power_pin_up();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
     for(int i= 0 ; i < adc_params[*adc_index].n_samples; i++){
         if (adc_params[*adc_index].get_mv(&data, *adc_index))
             ESP_LOGE(TAG, "Error reading ADC with index %d", *adc_index);
