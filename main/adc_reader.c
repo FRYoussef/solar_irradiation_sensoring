@@ -1,7 +1,9 @@
 #include "adc_reader.h"
 #include "mqtt.h"
+#include "freertos/task.h"
 
 #define eos(s) ((s) + strlen(s))
+#define BATTERY_ADC_GAIN 3 // We meassure a fraction of the battery voltage
 
 static const char *TAG = "adc_reader";
 
@@ -9,7 +11,7 @@ static const char *TAG = "adc_reader";
 const int IRRADIATION_ADC_INDEX = 0;
 const int BATTERY_ADC_INDEX = 1;
 const int BIAS_ADC_INDEX = 2; // used for irradiation, always keep it with the highest index
-const int NFIELDS = 2; // number of entries of adc_params to read to send to the MQTT broker 
+const int NFIELDS = 2; // number of entries of adc_params to read to send to the MQTT broker
 
 esp_err_t power_pin_down(void);
 esp_err_t power_pin_up(void);
@@ -36,7 +38,7 @@ static struct adc_config_params adc_params[N_ADC] = {
         .n_samples = CONFIG_N_SAMPLES_BATTERY,
         .channel = ADC1_CHANNEL_1,
         .influxdb_field = FIELD_BATTERY,
-        .get_mv = get_adc_mv,
+        .get_mv = get_battery_mv,
         .last_mean = 0,
 
     },
@@ -98,15 +100,18 @@ int get_adc_mv(int *value, int adc_index) {
     return 0;
 }
 
+int get_battery_mv(int *value, int adc_index) {
+    get_adc_mv(value, IRRADIATION_ADC_INDEX);
+	*value *= BATTERY_ADC_GAIN;
+	return 0;
+}
+
 
 int get_irradiation_mv(int *value, int adc_index) {
     int panel_mv, bias_mv;
-    
     get_adc_mv(&panel_mv, IRRADIATION_ADC_INDEX);
     get_adc_mv(&bias_mv, BIAS_ADC_INDEX);
-
     *value = panel_mv - bias_mv;
-
     return 0;
 }
 
@@ -115,8 +120,10 @@ static void sampling_timer_callback(void * args){
     int *adc_index = (int *) args;
 
     int data, sample = 0;
-    if (*adc_index == IRRADIATION_ADC_INDEX)
+    if (*adc_index == IRRADIATION_ADC_INDEX) {
         power_pin_up();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
     for(int i= 0 ; i < adc_params[*adc_index].n_samples; i++){
         if (adc_params[*adc_index].get_mv(&data, *adc_index))
             ESP_LOGE(TAG, "Error reading ADC with index %d", *adc_index);
@@ -126,8 +133,8 @@ static void sampling_timer_callback(void * args){
     sample = (int) sample / adc_params[*adc_index].n_samples;
     if (*adc_index == IRRADIATION_ADC_INDEX)
         power_pin_down();
-    ESP_LOGI(TAG, "Sample from ADC(%d) = %d", *adc_index, sample);    
-    
+    ESP_LOGI(TAG, "Sample from ADC(%d) = %d", *adc_index, sample);
+
     //Save the taken sample in the circular buffer
     adcs_send_buffers[*adc_index].samples[ adcs_send_buffers[*adc_index].cont % adc_params[*adc_index].window_size   ] = sample;
     adcs_send_buffers[*adc_index].cont++;
@@ -137,14 +144,20 @@ static char* buildInfluxDBString(int nfields) {
     char* str = (char*) malloc(MAX_INFLUXDB_STRING);
     sprintf(str,INFLUXDB_MEASUREMENT);
     sprintf(eos(str),INFLUXDB_LOCATION);
+    sprintf(eos(str)," "); // space between TAGS and FILEDS
     for (int i=0; i < (nfields-1); i++ )
         sprintf(eos(str),"%s=%d,",adc_params[i].influxdb_field,adc_params[i].last_mean);
-    
+
     // last field without comma
-    sprintf(eos(str),"%s=%d ",adc_params[nfields-1].influxdb_field,adc_params[nfields-1].last_mean);
+    sprintf(eos(str),"%s=%d ", adc_params[nfields-1].influxdb_field, adc_params[nfields-1].last_mean);
 
     // TODO include timestamp in nanoseconds
-
+	/*
+    struct timeval tv_now;
+	gettimeofday(&tv_now, NULL);
+	int64_t time_ns = ((int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec) * 1000;
+    sprintf(eos(str),"%lld", time_ns);
+    */
     return str;
 
 }
@@ -169,10 +182,11 @@ static void broker_sender_callback(void * args){
             mean = mean / nsamples;
             adc_params[i].last_mean =mean;
             adcs_send_buffers[i].cont = 0;
-        } 
-        else {
-            adc_params[i].last_mean =-1;          
         }
+        // Keep last mean value if no new samples in buffer
+        //else {
+        //    adc_params[i].last_mean =-1;
+        //}
     }
 
     if ( (payload=buildInfluxDBString(nfields) ) == NULL  ) {
@@ -189,7 +203,7 @@ static void broker_sender_callback(void * args){
 
 esp_err_t power_pin_setup(void) {
     gpio_config_t io_conf;
-    
+
     io_conf.intr_type = GPIO_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_OUTPUT;
     io_conf.pin_bit_mask = (1ULL << POWER_PIN);
@@ -229,12 +243,15 @@ int adcs_setup(void) {
 
     for(int i = 0; i < N_ADC; i++)
         ret |= adc1_channel_setup(adc_params[i].channel, &adc_params[i].adc_chars);
-    
+
     return ret;
 }
 
 
 int setup_adc_reader(){
+    struct timeval tv_now;
+	int64_t delta_ms;
+
     // allocate memory for send buffers
     for(int i = 0; i < N_ADC_MEASURES; i++)
         adcs_send_buffers[i].samples = malloc(sizeof(int) * adc_params[i].window_size);
@@ -257,10 +274,16 @@ int setup_adc_reader(){
         return 1;
     }
 
+    gettimeofday(&tv_now, NULL);
+    delta_ms = (60 - (int64_t)(tv_now.tv_sec%60))* 1000 -  ((int64_t)tv_now.tv_usec/1000);
+	if (delta_ms < 0)
+		delta_ms = 0;
+    ESP_LOGI(TAG, "Wait for delta_ms before programming timers: %li ms ", (long)delta_ms);
+    vTaskDelay(delta_ms / portTICK_PERIOD_MS);
+    ESP_LOGI(TAG, "Done. Now programming timers");
+
     // timers configuration
     for(int i = 0; i < N_ADC_MEASURES; i++) {
-
-    
         // sampling adc timer
         esp_timer_create(&sample_timer_args[i], &sampling_timer[i]);
         esp_timer_start_periodic(sampling_timer[i], adc_params[i].sample_frequency*1000000);
@@ -288,7 +311,7 @@ int start_timer(int adc, esp_timer_handle_t timer, int freq){
 
 int start_broker_send_timers() {
     int ret = 0;
-    
+
     for(int i = 0; i < N_ADC_MEASURES; i++)
         ret |= start_timer(i, broker_sender_timer[i], adc_params[i].send_frenquency);
 
@@ -351,7 +374,7 @@ int change_broker_sender_frequency(int send_freq, int adc) {
 int change_sample_number(int n_samples, int adc) {
     if (stop_timer(adc, sampling_timer[adc]))
         return 1;
-    
+
     vTaskDelay(pdMS_TO_TICKS(500));
 
     adc_params[adc].n_samples = n_samples;

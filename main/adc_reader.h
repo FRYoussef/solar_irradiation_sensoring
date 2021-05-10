@@ -34,7 +34,7 @@
 #define MAX_INFLUXDB_FIELDS 4
 #define MAX_INFLUXDB_STRING 128
 #define INFLUXDB_MEASUREMENT "cabahla"
-#define INFLUXDB_LOCATION ",location=fisicas "
+#define INFLUXDB_LOCATION ",id=v1-n1"
 #define FIELD_IRRADIATION "irradiation"
 #define FIELD_BATTERY "battery"
 
@@ -46,6 +46,7 @@
 
 int get_adc_mv(int *value, int adc_index);
 int get_irradiation_mv(int *value, int adc_index);
+int get_battery_mv(int *value, int adc_index);
 static void sampling_timer_callback(void *);
 static void broker_sender_callback(void *);
 
