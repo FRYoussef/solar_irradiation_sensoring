@@ -182,9 +182,10 @@ static void broker_sender_callback(void * args){
             adc_params[i].last_mean =mean;
             adcs_send_buffers[i].cont = 0;
         }
-        else {
-            adc_params[i].last_mean =-1;
-        }
+        // Keep last mean value if no new samples in buffer
+        //else {
+        //    adc_params[i].last_mean =-1;
+        //}
     }
 
     if ( (payload=buildInfluxDBString(nfields) ) == NULL  ) {
