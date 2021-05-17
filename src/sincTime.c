@@ -20,6 +20,7 @@
 #include "nvs_flash.h"
 #include "esp_sntp.h"
 
+#define NTP_SYNC_PERIOD 60*60  // period in seconds for ntp timer
 
 static int32_t HOUR_TO_SLEEP = CONFIG_HOUR_TO_SLEEP;
 static int32_t HOUR_TO_WAKEUP = CONFIG_HOUR_TO_WAKEUP;
@@ -28,14 +29,22 @@ extern esp_err_t power_pin_down(void);
 
 static const char *TAG = "sntp";
 esp_timer_handle_t deep_sleep_timer;
+esp_timer_handle_t ntp_timer;
 
 static void obtain_time(void);
 static void initialize_sntp(void);
 static void deep_sleep_timer_callback(void * args);
+static void ntp_timer_callback(void * args);
 
 const esp_timer_create_args_t deep_sleep_timer_args = {
         .callback = &deep_sleep_timer_callback,
         .name = "periodic"
+}; 
+
+const esp_timer_create_args_t ntp_timer_args = {
+        .callback = &ntp_timer_callback,
+        .name = "ntp_timer",
+		.arg = NULL,
 }; 
 
 #ifdef CONFIG_SNTP_TIME_SYNC_METHOD_CUSTOM
@@ -116,52 +125,8 @@ static void deep_sleep_timer_callback(void * args){
     esp_deep_sleep_start();
 }
 
-void sincTimeAndSleep(void) {
-#ifndef CONFIG_DEEP_SLEEP
-        return;
-#endif
-
-    time_t now;
-    struct tm timeinfo;
-    time(&now);
-    localtime_r(&now, &timeinfo);
-    // Is time set? If not, tm_year will be (1970 - 1900).
-    if (timeinfo.tm_year < (2020 - 1900)) {
-        ESP_LOGI(TAG, "Time is not set yet. Connecting to WiFi and getting time over NTP.");
-        obtain_time();
-        // update 'now' variable with current time
-        time(&now);
-    }
-#ifdef CONFIG_SNTP_TIME_SYNC_METHOD_SMOOTH
-    else {
-        // add 500 ms error to the current system time.
-        // Only to demonstrate a work of adjusting method!
-        {
-            ESP_LOGI(TAG, "Add a error for test adjtime");
-            struct timeval tv_now;
-            gettimeofday(&tv_now, NULL);
-            int64_t cpu_time = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
-            int64_t error_time = cpu_time + 500 * 1000L;
-            struct timeval tv_error = { .tv_sec = error_time / 1000000L, .tv_usec = error_time % 1000000L };
-            settimeofday(&tv_error, NULL);
-        }
-
-        ESP_LOGI(TAG, "Time was set, now just adjusting it. Use SMOOTH SYNC method.");
-        obtain_time();
-        // update 'now' variable with current time
-        time(&now);
-    }
-#endif
-
-    char strftime_buf[64];
-
-    // Set timezone to Eastern Standard Time and print local time
-    setenv("TZ", "Europe/Madrid", 1);
-    tzset();
-    localtime_r(&now, &timeinfo);
-    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-    ESP_LOGI(TAG, "The current date/time in Madrid is: %s", strftime_buf);
-
+void wait_for_sntp_sync(time_t now)
+{
     if (sntp_get_sync_mode() == SNTP_SYNC_MODE_SMOOTH) {
         struct timeval outdelta;
         while (sntp_get_sync_status() == SNTP_SYNC_STATUS_IN_PROGRESS) {
@@ -173,6 +138,43 @@ void sincTimeAndSleep(void) {
             vTaskDelay(2000 / portTICK_PERIOD_MS);
         }
     }
+}
+
+static void ntp_timer_callback(void * args)
+{
+    time_t now;
+	ESP_LOGI(TAG, "NTP Sync Timer callback.");
+	obtain_time();
+	time(&now);
+	// FIXME: Not sure if this makes sense, the thread attending this casllback
+	// will wait, but not the rest
+	wait_for_sntp_sync(now);
+}
+
+
+void sincTimeAndSleep(void) {
+#ifndef CONFIG_DEEP_SLEEP
+        return;
+#endif
+
+    time_t now;
+	ESP_LOGI(TAG, "Syncing time with remote ntp server.");
+	obtain_time();
+	time(&now);
+    // Set timezone to Eastern Standard Time and print local time
+    setenv("TZ", "Europe/Madrid", 1);
+    tzset();
+
+    char strftime_buf[64];
+    struct tm timeinfo;
+    localtime_r(&now, &timeinfo);
+    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+    ESP_LOGI(TAG, "The current date/time in Madrid is: %s", strftime_buf);
+	wait_for_sntp_sync(now);
+
+    esp_timer_create(&ntp_timer_args, &ntp_timer);
+    ESP_LOGI(TAG, "Starting time synchronization timer");
+    esp_timer_start_periodic(ntp_timer, (uint64_t)NTP_SYNC_PERIOD * 1000000L);
 
     //Calculo cuánto queda hasta la hora de dormir y pongo un timer
     struct tiempo tiempo = tiempoHastaDormir(timeinfo);
