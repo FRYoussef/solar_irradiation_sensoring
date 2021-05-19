@@ -1,6 +1,7 @@
 # Diario de pruebas de nodos
 
-## 13 Mayo. Pruebas UCM
+
+## 13 Mayo. Pruebas UCM
 
  * Nodo 1 enviaba negativos. Deja de hacerlo al quitarlo de la placa de expansión y separar bien los conectores del panelcito. Empieza a enviar positivos incluso conectado a placa de expansión.
 * Mismo problema con nodo6. Ahora envía positivo tras desconectar y separar
@@ -29,4 +30,11 @@
   * [16:33] nodo1 y nodo2 también conectados a placa de expansión. nodo4 y nodo5 no
   * [17:24] Conector nodo3 con nueva LoPy a Agilent. Zona muy sombría ya.
  
+## 19 de mayo. Visita CIEMAT
+  * Nodos 4 y 5 tostados con eduroam y se quedan en CIEMAT. Envían regularmente durante el día. Problemas:
+    * A veces no conectan por falta de señal --> reinicioes, problemas con SNTP
+    * Puede que se esté fijando la hora de dormir cuando aún no tenemos sincronización SNTP, y eso hace que se duerma más tarde de la cuenta
+  * Nodo 3 parece volver a modo provisionamiento tras reset
+  * Nodo 1 programado para no pasar a ligth sleep: parece que desvía mucho menos temporalmente
+  * Nodo 6 incorpora antena externa. Programado para dejar powerPin = 1 siempre (porque es el pin para indicar que se use la externa). 
 
