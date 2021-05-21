@@ -8,13 +8,13 @@
 */
 
 #include "mqtt.h"
+#include "fsm.h"
+#include "adc_reader.h"
 
 static esp_mqtt_client_handle_t client;
-bool first_conexion_mqtt = true;
-
 static const char *TAG = "MQTTS";
 
-                                                    // /location/board name/sensor metric/sensor number/config parameter  
+// /location/board name/sensor metric/sensor number/config parameter
 static const char * TOPIC_SAMPLE_FREQ_IRRADIATION = "/ciu/lopy4/irradiation/1/sample_frequency";
 static const char * TOPIC_SEND_FREQ_IRRADIATION = "/ciu/lopy4/irradiation/1/send_frequency";
 static const char * TOPIC_N_SAMPLES_IRRADIATION = "/ciu/lopy4/irradiation/1/sample_number";
@@ -31,17 +31,6 @@ static const char * TOPIC_N_SAMPLES_BATTERY_LEVEL = "/ciu/lopy4/battery_level/1/
 // #endif
 // extern const uint8_t mqtt_eclipse_org_pem_end[]   asm("_binary_mqtt_eclipse_org_pem_end");
 
-extern int setup_adc_reader();
-extern int start_broker_send_timers();
-extern int stop_broker_send_timers();
-extern int change_sample_frequency(int sample_freq, int adc);
-extern int change_broker_sender_frequency(int send_freq, int adc);
-extern int change_sample_number(int n_samples, int adc);
-
-extern int IRRADIATION_ADC_INDEX;
-extern int BATTERY_ADC_INDEX;
-extern int BIAS_ADC_INDEX;
-
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 {
     client = event->client;
@@ -49,34 +38,16 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-
-            if (first_conexion_mqtt){
-                /*Iniciamos los timers de lectura y envio*/
-                if(setup_adc_reader()) {
-                    ESP_LOGE(TAG, "Failed to create adc_reader module.");
-                    return 1;
-                }
-
-                first_conexion_mqtt = false;
-
-                esp_mqtt_client_subscribe(client, TOPIC_SAMPLE_FREQ_IRRADIATION, 1);
-                esp_mqtt_client_subscribe(client, TOPIC_SEND_FREQ_IRRADIATION, 1);
-                esp_mqtt_client_subscribe(client, TOPIC_N_SAMPLES_IRRADIATION, 1);
-
-                esp_mqtt_client_subscribe(client, TOPIC_SAMPLE_FREQ_BATTERY_LEVEL, 1);
-                esp_mqtt_client_subscribe(client, TOPIC_SEND_FREQ_BATTERY_LEVEL, 1);
-                esp_mqtt_client_subscribe(client, TOPIC_N_SAMPLES_BATTERY_LEVEL, 1);
-            } else {
-                /*Activamos los timers de envio de los sensores*/
-                start_broker_send_timers();
-            }
-            
-
+			esp_mqtt_client_subscribe(client, TOPIC_SAMPLE_FREQ_IRRADIATION, 1);
+			esp_mqtt_client_subscribe(client, TOPIC_SEND_FREQ_IRRADIATION, 1);
+			esp_mqtt_client_subscribe(client, TOPIC_N_SAMPLES_IRRADIATION, 1);
+			esp_mqtt_client_subscribe(client, TOPIC_SAMPLE_FREQ_BATTERY_LEVEL, 1);
+			esp_mqtt_client_subscribe(client, TOPIC_SEND_FREQ_BATTERY_LEVEL, 1);
+			esp_mqtt_client_subscribe(client, TOPIC_N_SAMPLES_BATTERY_LEVEL, 1);
+			fsm_mqtt_connected();
             break;
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
-            /*Paramos los envios de los datos de los sensores*/
-            stop_broker_send_timers();
             break;
 
         case MQTT_EVENT_SUBSCRIBED:
@@ -90,32 +61,8 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             break;
         case MQTT_EVENT_DATA:
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-            event->data[event->data_len] = '\0'; //Necesario para que no sea el buffer más grande y añada 0 que no queremos al usar atoi()
-            if (strstr(event->topic, "sample_frequency") != NULL) {
-                if (strstr(event->topic, "irradiation")){
-                    change_sample_frequency(atoi(event->data), IRRADIATION_ADC_INDEX);
-                    ESP_LOGI(TAG, "Recibido un cambio de sample_frequency a %d segundos para irradiation.", atoi(event->data));
-                } else if (strstr(event->topic, "battery_level")){
-                    change_sample_frequency(atoi(event->data), BATTERY_ADC_INDEX);
-                    ESP_LOGI(TAG, "Recibido un cambio de sample_frequency a %d segundos para battery_level.", atoi(event->data));
-                }
-            } else if (strstr(event->topic, "send_frequency")){
-                if (strstr(event->topic, "irradiation")){
-                    change_broker_sender_frequency(atoi(event->data), IRRADIATION_ADC_INDEX);
-                    ESP_LOGI(TAG, "Recibido un cambio de send_frequency a %d para irradiation.", atoi(event->data));
-                } else if (strstr(event->topic, "battery_level")){
-                    change_broker_sender_frequency(atoi(event->data), BATTERY_ADC_INDEX);
-                    ESP_LOGI(TAG, "Recibido un cambio de send_frequency a %d para battery_level.", atoi(event->data));
-                }
-            } else if (strstr(event->topic, "sample_number")){
-                if (strstr(event->topic, "irradiation")){
-                    change_sample_number(atoi(event->data), IRRADIATION_ADC_INDEX);
-                    ESP_LOGI(TAG, "Recibido un cambio de sample_number a %d para irradiation.", atoi(event->data));
-                } else if (strstr(event->topic, "battery_level")){
-                    change_sample_number(atoi(event->data), BATTERY_ADC_INDEX);
-                    ESP_LOGI(TAG, "Recibido un cambio de sample_number a %d para battery_level.", atoi(event->data));
-                }
-            }
+            event->data[event->data_len] = '\0';
+			adc_reader_update(event->topic, event->data);
             //printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
             //printf("DATA=%.*s\r\n", event->data_len, event->data);
 
@@ -152,7 +99,8 @@ void mqtt_app_start(void)
 }
 
 
-void mqtt_send_data(const char *topic, char *data, int len, int qos, int retain){
+void mqtt_send_data(const char *topic, char *data, int len, int qos, int retain)
+{
     esp_mqtt_client_publish(client, topic, data, len, qos, retain);
 }
 

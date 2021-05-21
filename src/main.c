@@ -2,6 +2,7 @@
 #include "esp_log.h"
 #include "sdkconfig.h"
 #include "mqtt_client.h"
+#include "fsm.h"
 
 #include "esp_wifi.h"
 #include "esp_system.h"
@@ -20,15 +21,10 @@
 
 #include "freertos/task.h"
 
-extern void provisioning(void);
 extern void redireccionaLogs(void);
 
-extern int setup_adc_reader();
-
-static const char *TAG = "main";
-
 void app_main(void)
-{   
+{
     //Just redirect error logs
     //esp_log_level_set("*", ESP_LOG_ERROR);
     esp_log_level_set("*", ESP_LOG_VERBOSE);
@@ -42,19 +38,6 @@ void app_main(void)
     };
     esp_pm_configure(&config);
 
-    /* Initialize networking stack */
-    ESP_ERROR_CHECK(esp_netif_init());
-
-    /* Create default event loop needed by the
-     * main app and the provisioning service */
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-    /* Initialize NVS needed by Wi-Fi */
-    ESP_ERROR_CHECK(nvs_flash_init());
-
-    //wifi provisioning
-    ESP_LOGI(TAG, "Starting WiFi SoftAP provisioning");
-    provisioning();
-    
+	fsm_init();
     vTaskSuspend(NULL);
 }

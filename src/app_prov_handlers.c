@@ -18,6 +18,7 @@
 #include <wifi_provisioning/wifi_config.h>
 
 #include "app_prov.h"
+#include "fsm.h"
 
 static const char* TAG = "app_prov_handler";
 
@@ -25,10 +26,6 @@ static const char* TAG = "app_prov_handler";
 struct wifi_prov_ctx {
     wifi_config_t wifi_cfg;
 };
-
-extern void mqtt_app_start(void);
-
-extern void sincTimeAndSleep(void);
 
 static wifi_config_t *get_config(wifi_prov_ctx_t **ctx)
 {
@@ -73,11 +70,7 @@ static esp_err_t get_status_handler(wifi_prov_config_get_data_t *resp_data, wifi
         memcpy(resp_data->conn_info.ssid,  (char *)ap_info.ssid,  sizeof(ap_info.ssid));
         resp_data->conn_info.channel   = ap_info.primary;
         resp_data->conn_info.auth_mode = ap_info.authmode;
-
-        /* Estamos conectados a la red, ahora conectamos al brocker con mqtt*/
-        //Inicializamos MQTT -> inicia la lectura de sensores
-        mqtt_app_start();
-        sincTimeAndSleep();
+		fsm_provisioned();
 
     } else if (resp_data->wifi_state == WIFI_PROV_STA_DISCONNECTED) {
         ESP_LOGI(TAG, "Disconnected state");
