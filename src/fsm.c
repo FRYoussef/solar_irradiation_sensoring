@@ -356,6 +356,7 @@ void fsm_init(void)
 		free(ssid);
 		free(pop);
 	} else {
+		ESP_LOGI(TAG, "Node is provisioned");
 		fsm_provisioned();
 	}
 }
