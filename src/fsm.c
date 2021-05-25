@@ -146,12 +146,12 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 }
 
 #ifdef CONFIG_EXAMPLE_SSID
-static char * get_provisioning_ssid(void)
+static char *get_provisioning_ssid(void)
 {
-	return CONFIG_EXAMPLE_SSID;
+	return strdup(CONFIG_EXAMPLE_SSID);
 }
 #else
-static char * get_provisioning_ssid(void)
+static char *get_provisioning_ssid(void)
 {
 	char *ssid = malloc(33);
 	if (ssid) {
@@ -160,6 +160,10 @@ static char * get_provisioning_ssid(void)
 		snprintf(ssid, 33, "PROV_%02X%02X%02X", mac[3], mac[4], mac[5]);
 	}
 	return ssid;
+}
+static void prov_free_ssid(char *ssid)
+{
+	free(ssid);
 }
 #endif
 
@@ -336,8 +340,8 @@ void fsm_init(void)
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-    setenv("TZ", "Europe/Madrid", 1);
-    tzset();
+    //setenv("TZ", "Europe/Madrid", 1);
+    //tzset();
 
 	/* Check if device is provisioned */
 	bool provisioned;
@@ -350,7 +354,9 @@ void fsm_init(void)
 		/* If not provisioned, start provisioning via soft AP */
 		protocomm_security_pop_t *pop = get_security_pop();
 		char *ssid = get_provisioning_ssid();
-		ESP_LOGI(TAG, "Starting WiFi SoftAP provisioning");
+		ESP_LOGI(TAG, "Starting WiFi SoftAP provisioning on ssid %s", ssid);
+		if (!pop)
+			ESP_LOGI(TAG, "pop is NULL");
 		ESP_ERROR_CHECK(app_prov_start_softap_provisioning(
 					ssid, CONFIG_EXAMPLE_PASS, PROV_SECURITY, pop));
 		free(ssid);

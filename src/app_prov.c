@@ -366,6 +366,8 @@ esp_err_t app_prov_start_softap_provisioning(const char *ssid, const char *pass,
     }
 
     /* Start WiFi softAP with specified ssid and password */
+    ESP_LOGI(TAG, "starting wifi in softAP mode with ssid: %s and pass: %s",
+			ssid, pass);
     err = start_wifi_ap(ssid, pass);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start WiFi AP");
