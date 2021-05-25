@@ -36,6 +36,7 @@ static int32_t HOUR_TO_WAKEUP = CONFIG_HOUR_TO_WAKEUP;
 static int provisioned = 0;
 static int wifi_conn   = 0;
 static int ntp_sync    = 0;
+static int ntp_init    = 0;
 static int mqtt_conn   = 0;
 static int adc_config  = 0;
 
@@ -132,7 +133,9 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
             esp_wifi_connect();
             s_retry_num++;
             ESP_LOGI(TAG, "retry to connect to the AP");
-        }
+        } else {
+			fsm_wifi_disconnected();
+		}
         ESP_LOGI(TAG,"connect to the AP fail");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
@@ -250,23 +253,50 @@ void fsm_wifi_connected(void)
 		ESP_LOGE(TAG, "Wifi connected event when already connected to wifi");
 	wifi_conn = 1;
 
-    ESP_LOGI(TAG, "Initializing SNTP");
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, "pool.ntp.org");
-	sntp_set_sync_interval(SNTP_SYNC_INTERVAL_MS);
-    sntp_set_time_sync_notification_cb(time_sync_notification_cb);
+	if (!ntp_init) {
+		ESP_LOGI(TAG, "Initializing SNTP");
+		sntp_setoperatingmode(SNTP_OPMODE_POLL);
+		sntp_setservername(0, "pool.ntp.org");
+		sntp_set_sync_interval(SNTP_SYNC_INTERVAL_MS);
+		sntp_set_time_sync_notification_cb(time_sync_notification_cb);
 #ifdef CONFIG_SNTP_TIME_SYNC_METHOD_SMOOTH
-    sntp_set_sync_mode(SNTP_SYNC_MODE_SMOOTH);
+		sntp_set_sync_mode(SNTP_SYNC_MODE_SMOOTH);
 #endif
-    sntp_init();
+		sntp_init();
+		ntp_init = 1;
+	} else {
+		sntp_restart();
+	}
+}
+
+void fsm_wifi_disconnected(void)
+{
+	if (!wifi_conn) {
+		ESP_LOGW(TAG, "Wifi disconnected event when not connected to wifi");
+		return;
+	}
+	wifi_conn = 0;
+	ESP_LOGW(TAG, "Wifi disconnected event");
+	//if (ntp_init) {
+		//FIXME: can we stop the sntp?
+	//}
+	if (mqtt_conn) {
+		mqtt_app_stop();
+		mqtt_conn = 0;
+	}
+	if (adc_config) {
+		adc_reader_stop_send_timers();
+	}
 }
 
 void fsm_provisioned(void)
 {
 	if (provisioned)
 		ESP_LOGE(TAG, "Provisioned event when already provisioned");
-	else if (wifi_conn)
+	else if (wifi_conn) {
 		ESP_LOGE(TAG, "Provisioned event when wifi already connected");
+		//FIXME: should we disconnect?
+	}
 
 	provisioned = 1;
 
@@ -286,6 +316,7 @@ void fsm_init(void)
 	provisioned = 0;
 	wifi_conn   = 0;
 	ntp_sync    = 0;
+	ntp_init    = 0;
 	mqtt_conn   = 0;
 	adc_config  = 0;
 

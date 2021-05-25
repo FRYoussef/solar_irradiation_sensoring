@@ -7,5 +7,6 @@
 #define BROKER_URI CONFIG_BROKER_URL
 void mqtt_send_data(const char *topic, char *data, int len, int qos, int retain);
 void mqtt_app_start(void);
+void mqtt_app_stop(void);
 
 #endif

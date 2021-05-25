@@ -98,6 +98,11 @@ void mqtt_app_start(void)
     esp_mqtt_client_start(client);
 }
 
+void mqtt_app_stop(void)
+{
+    esp_mqtt_client_stop(client);
+}
+
 
 void mqtt_send_data(const char *topic, char *data, int len, int qos, int retain)
 {
