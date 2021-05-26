@@ -33,12 +33,12 @@ static int32_t HOUR_TO_WAKEUP = CONFIG_HOUR_TO_WAKEUP;
 #define TAG "FSM"
 
 // Boolean variables, the state is the actual combination of these variables
-static int provisioned = 0;
-static int wifi_conn   = 0;
-static int ntp_sync    = 0;
-static int ntp_init    = 0;
-static int mqtt_conn   = 0;
-static int adc_config  = 0;
+static bool provisioned = false;
+static bool wifi_conn   = false;
+static bool ntp_sync    = false;
+static bool ntp_init    = false;
+static bool mqtt_conn   = false;
+static bool adc_config  = false;
 
 static esp_timer_handle_t deep_sleep_timer;
 
@@ -206,7 +206,7 @@ void fsm_mqtt_disconnected(void)
 {
 	if (!mqtt_conn)
 		ESP_LOGW(TAG, "MQTT disconnected event when not connected");
-	mqtt_conn = 0;
+	mqtt_conn = false;
     adc_reader_stop_send_timers();
 }
 
@@ -214,12 +214,12 @@ void fsm_mqtt_connected(void)
 {
 	if (mqtt_conn)
 		ESP_LOGW(TAG, "MQTT connected event when already connected");
-	mqtt_conn = 1;
+	mqtt_conn = true;
 
 	if (!adc_config) {
 		if(adc_reader_setup())
 			ESP_LOGE(TAG, "Failed to create adc_reader module.");
-		adc_config = 1;
+		adc_config = true;
 	}
 	adc_reader_start_send_timers();
 }
@@ -230,7 +230,7 @@ void fsm_ntp_sync(void)
     	ESP_LOGI(TAG, "NTP event on synched system");
 	else
     	ESP_LOGI(TAG, "NTP event on unsynched system");
-	ntp_sync = 1;
+	ntp_sync = true;
 
 	wait_for_sntp_sync();
 
@@ -270,7 +270,7 @@ void fsm_wifi_connected(void)
 {
 	if (wifi_conn)
 		ESP_LOGE(TAG, "Wifi connected event when already connected to wifi");
-	wifi_conn = 1;
+	wifi_conn = true;
 
 	if (!ntp_init) {
 		ESP_LOGI(TAG, "Initializing SNTP");
@@ -284,7 +284,7 @@ void fsm_wifi_connected(void)
   		sntp_set_sync_mode(SNTP_SYNC_MODE_IMMED);
 #endif
 		sntp_init();
-		ntp_init = 1;
+		ntp_init = true;
 	} else {
 		sntp_restart();
 	}
@@ -296,14 +296,14 @@ void fsm_wifi_disconnected(void)
 		ESP_LOGW(TAG, "Wifi disconnected event when not connected to wifi");
 		return;
 	}
-	wifi_conn = 0;
+	wifi_conn = false;
 	ESP_LOGW(TAG, "Wifi disconnected event");
 	//if (ntp_init) {
 		//FIXME: can we stop the sntp?
 	//}
 	if (mqtt_conn) {
 		mqtt_app_stop();
-		mqtt_conn = 0;
+		mqtt_conn = false;
 	}
 	if (adc_config) {
 		adc_reader_stop_send_timers();
@@ -312,34 +312,33 @@ void fsm_wifi_disconnected(void)
 
 void fsm_provisioned(void)
 {
-	if (provisioned)
+	if (provisioned) {
 		ESP_LOGE(TAG, "Provisioned event when already provisioned");
-	else if (wifi_conn) {
-		ESP_LOGE(TAG, "Provisioned event when wifi already connected");
-		//FIXME: should we disconnect?
+
+		/* Start WiFi station with credentials set during provisioning */
+		ESP_LOGI(TAG, "Starting WiFi station");
+		ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+					wifi_event_handler, NULL));
+		ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
+					wifi_event_handler, NULL));
+		/* Start Wi-Fi in station mode with credentials set during provisioning */
+		ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+		ESP_ERROR_CHECK(esp_wifi_start());
+	} else {
+		ESP_LOGE(TAG, "Provisioned event when not already provisioned");
+		provisioned = true;
+		fsm_wifi_connected(); // app_prov leaves the node already connected
 	}
-
-	provisioned = 1;
-
-	/* Start WiFi station with credentials set during provisioning */
-	ESP_LOGI(TAG, "Starting WiFi station");
-	ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
-				wifi_event_handler, NULL));
-	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
-				wifi_event_handler, NULL));
-	/* Start Wi-Fi in station mode with credentials set during provisioning */
-	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-	ESP_ERROR_CHECK(esp_wifi_start());
 }
 
 void fsm_init(void)
 {
-	provisioned = 0;
-	wifi_conn   = 0;
-	ntp_sync    = 0;
-	ntp_init    = 0;
-	mqtt_conn   = 0;
-	adc_config  = 0;
+	provisioned = false;
+	wifi_conn   = false;
+	ntp_sync    = false;
+	ntp_init    = false;
+	mqtt_conn   = false;
+	adc_config  = false;
 
     /* Initialize networking stack */
     ESP_ERROR_CHECK(esp_netif_init());
@@ -358,7 +357,6 @@ void fsm_init(void)
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
 	/* Check if device is provisioned */
-	bool provisioned;
 	if (app_prov_is_provisioned(&provisioned) != ESP_OK) {
 		ESP_LOGE(TAG, "Error getting device provisioning state");
 		return;

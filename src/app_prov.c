@@ -126,6 +126,7 @@ static void stop_prov_task(void * arg)
     free(g_prov);
     g_prov = NULL;
     ESP_LOGI(TAG, "Provisioning stopped");
+	fsm_provisioned();
 
     vTaskDelete(NULL);
 }
