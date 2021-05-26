@@ -10,6 +10,8 @@
 #include <esp_attr.h>
 #include <esp_sleep.h>
 #include <esp_wifi.h>
+#include <esp_wpa2.h>
+#include <esp_netif.h>
 #include <nvs_flash.h>
 #include <esp_sntp.h>
 
@@ -17,6 +19,7 @@
 #include "mqtt.h"
 #include "app_prov.h"
 #include "adc_reader.h"
+#include "wpa2_enterprise.h"
 
 #ifdef CONFIG_EXAMPLE_USE_SEC_1
 #define PROV_SECURITY 1
@@ -31,6 +34,42 @@ static int32_t HOUR_TO_SLEEP = CONFIG_HOUR_TO_SLEEP;
 static int32_t HOUR_TO_WAKEUP = CONFIG_HOUR_TO_WAKEUP;
 
 #define TAG "FSM"
+
+#ifdef CONFIG_USING_WPA2_ENTERPRISE
+static const bool using_wpa2_enterprise = true;
+#else
+static const bool using_wpa2_enterprise = false;
+#endif
+
+/* The examples use simple WiFi configuration that you can set via
+   project configuration menu.
+
+   If you'd rather not, just change the below entries to strings with
+   the config you want - ie #define EXAMPLE_WIFI_SSID "mywifissid"
+
+   You can choose EAP method via project configuration according to the
+   configuration of AP.
+*/
+#define EXAMPLE_WIFI_SSID CONFIG_EXAMPLE_WIFI_SSID
+#define EXAMPLE_EAP_METHOD CONFIG_EXAMPLE_EAP_METHOD
+#define EXAMPLE_EAP_ID CONFIG_EXAMPLE_EAP_ID
+#define EXAMPLE_EAP_USERNAME CONFIG_EXAMPLE_EAP_USERNAME
+#define EXAMPLE_EAP_PASSWORD CONFIG_EXAMPLE_EAP_PASSWORD
+
+/* FreeRTOS event group to signal when we are connected & ready to make a request */
+static EventGroupHandle_t wifi_event_group;
+
+/* esp netif object representing the WIFI station */
+static esp_netif_t *sta_netif = NULL;
+
+/* The event group allows multiple bits for each event,
+   but we only care about one event - are we connected
+   to the AP with an IP? */
+const int CONNECTED_BIT = BIT0;
+
+#if defined CONFIG_EXAMPLE_EAP_METHOD_TTLS
+esp_eap_ttls_phase2_types TTLS_PHASE2_METHOD = CONFIG_EXAMPLE_EAP_METHOD_TTLS_PHASE_2;
+#endif /* CONFIG_EXAMPLE_EAP_METHOD_TTLS */
 
 // Boolean variables, the state is the actual combination of these variables
 static bool provisioned = false;
@@ -141,6 +180,8 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+		if (using_wpa2_enterprise)
+        	xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
         if (s_retry_num < EXAMPLE_AP_RECONN_ATTEMPTS) {
             esp_wifi_connect();
             s_retry_num++;
@@ -150,11 +191,85 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 		}
         ESP_LOGI(TAG,"connect to the AP fail");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+		if (using_wpa2_enterprise)
+        	xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
 		fsm_wifi_connected();
     }
+}
+
+static void wifi_setup_wpa2(void)
+{
+	ESP_LOGE(TAG, "Provisioned event when already provisioned");
+
+	/* Start WiFi station with credentials set during provisioning */
+	ESP_LOGI(TAG, "Starting WiFi station");
+	ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+				wifi_event_handler, NULL));
+	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
+				wifi_event_handler, NULL));
+	/* Start Wi-Fi in station mode with credentials set during provisioning */
+	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+	ESP_ERROR_CHECK(esp_wifi_start());
+}
+
+static void wifi_setup_wpa2_enterprise(void)
+{
+	ESP_ERROR_CHECK(esp_netif_init());
+	wifi_event_group = xEventGroupCreate();
+	esp_event_loop_delete_default();
+	ESP_ERROR_CHECK(esp_event_loop_create_default());
+	//esp_event_loop_create_default();
+	sta_netif = esp_netif_create_default_wifi_sta();
+	ESP_LOGI(TAG, "NETIF create called ...");
+	assert(sta_netif);
+	ESP_LOGI(TAG, "NETIF create correctly. Now init WIFI ...");
+	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+	ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+	ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+				&wifi_event_handler, NULL) );
+	ESP_ERROR_CHECK( esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
+				&wifi_event_handler, NULL) );
+	ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
+	wifi_config_t wifi_config = {
+		.sta = {
+			.ssid = EXAMPLE_WIFI_SSID,
+		},
+	};
+	ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
+	ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
+	ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
+	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_identity(
+				(uint8_t *)EXAMPLE_EAP_ID, strlen(EXAMPLE_EAP_ID)) );
+
+#ifdef CONFIG_EXAMPLE_VALIDATE_SERVER_CERT
+	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_ca_cert(wpa2_ca_pem,
+				wpa2_ca_pem_len) );
+#endif /* CONFIG_EXAMPLE_VALIDATE_SERVER_CERT */
+
+#ifdef CONFIG_EXAMPLE_EAP_METHOD_TLS
+	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_cert_key(wpa2_client_crt,
+				wpa2_client_crt_len, wpa2_client_key, wpa2_client_key_len, NULL,
+				0));
+#endif /* CONFIG_EXAMPLE_EAP_METHOD_TLS */
+
+#if defined CONFIG_EXAMPLE_EAP_METHOD_PEAP || CONFIG_EXAMPLE_EAP_METHOD_TTLS
+	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_username(
+				(uint8_t *)EXAMPLE_EAP_USERNAME, strlen(EXAMPLE_EAP_USERNAME)));
+	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_password(
+				(uint8_t *)EXAMPLE_EAP_PASSWORD, strlen(EXAMPLE_EAP_PASSWORD)));
+	ESP_LOGI(TAG, "Credentials %s...%s", EXAMPLE_EAP_USERNAME,EXAMPLE_EAP_PASSWORD);
+
+#endif /* CONFIG_EXAMPLE_EAP_METHOD_PEAP || CONFIG_EXAMPLE_EAP_METHOD_TTLS */
+
+#if defined CONFIG_EXAMPLE_EAP_METHOD_TTLS
+	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_ttls_phase2_method(TTLS_PHASE2_METHOD) );
+#endif /* CONFIG_EXAMPLE_EAP_METHOD_TTLS */
+
+	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_enable() );
+	ESP_ERROR_CHECK( esp_wifi_start() );
 }
 
 #ifdef CONFIG_EXAMPLE_SSID
@@ -313,17 +428,10 @@ void fsm_wifi_disconnected(void)
 void fsm_provisioned(void)
 {
 	if (provisioned) {
-		ESP_LOGE(TAG, "Provisioned event when already provisioned");
-
-		/* Start WiFi station with credentials set during provisioning */
-		ESP_LOGI(TAG, "Starting WiFi station");
-		ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
-					wifi_event_handler, NULL));
-		ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
-					wifi_event_handler, NULL));
-		/* Start Wi-Fi in station mode with credentials set during provisioning */
-		ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-		ESP_ERROR_CHECK(esp_wifi_start());
+		if (using_wpa2_enterprise)
+			wifi_setup_wpa2_enterprise();
+		else
+			wifi_setup_wpa2();
 	} else {
 		ESP_LOGE(TAG, "Provisioned event when not already provisioned");
 		provisioned = true;
@@ -362,7 +470,7 @@ void fsm_init(void)
 		return;
 	}
 
-    if (!provisioned) {
+    if (!provisioned && !using_wpa2_enterprise) {
 		/* If not provisioned, start provisioning via soft AP */
 		protocomm_security_pop_t *pop = get_security_pop();
 		char *ssid = get_provisioning_ssid();
