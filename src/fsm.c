@@ -98,8 +98,10 @@ static const esp_timer_create_args_t deep_sleep_timer_args = {
 
 static void wait_for_sntp_sync(void)
 {
+    ESP_LOGI(TAG, "Waiting for system time to be adjusted");
     if (sntp_get_sync_mode() == SNTP_SYNC_MODE_SMOOTH) {
         struct timeval outdelta;
+    	ESP_LOGI(TAG, "SNTP smooth adjust mode");
         while (sntp_get_sync_status() == SNTP_SYNC_STATUS_IN_PROGRESS) {
             adjtime(NULL, &outdelta);
             ESP_LOGI(TAG, "Waiting for adjusting time ... outdelta = %li sec: %li ms: %li us",
@@ -108,7 +110,16 @@ static void wait_for_sntp_sync(void)
                         outdelta.tv_usec%1000);
             vTaskDelay(2000 / portTICK_PERIOD_MS);
         }
-    }
+    } else {
+		int retry = 0;
+		while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET &&
+				++retry <= 10) {
+			ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry,
+					10);
+			vTaskDelay(2000 / portTICK_PERIOD_MS);
+		}
+	}
+    ESP_LOGI(TAG, "Time should be adjusted");
 }
 
 static void time_sync_notification_cb(struct timeval *tv)
@@ -117,7 +128,8 @@ static void time_sync_notification_cb(struct timeval *tv)
     char strftime_buf[64];
     localtime_r(&tv->tv_sec, &timeinfo);
     strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-    ESP_LOGI("NTP Event", "date/time in Madrid is: %s", strftime_buf);
+    ESP_LOGI("NTP Event", "date/time received from ntp server is: %s",
+			strftime_buf);
 	fsm_ntp_sync();
 }
 
@@ -225,6 +237,9 @@ void fsm_ntp_sync(void)
     char strftime_buf[64];
     time_t now;
     struct tm timeinfo;
+    time(&now);
+    setenv("TZ", "Europe/Madrid", 1);
+    tzset();
     localtime_r(&now, &timeinfo);
     strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
     ESP_LOGI(TAG, "The current date/time in Madrid is: %s", strftime_buf);
@@ -265,6 +280,8 @@ void fsm_wifi_connected(void)
 		sntp_set_time_sync_notification_cb(time_sync_notification_cb);
 #ifdef CONFIG_SNTP_TIME_SYNC_METHOD_SMOOTH
 		sntp_set_sync_mode(SNTP_SYNC_MODE_SMOOTH);
+#else
+  		sntp_set_sync_mode(SNTP_SYNC_MODE_IMMED);
 #endif
 		sntp_init();
 		ntp_init = 1;
@@ -340,9 +357,6 @@ void fsm_init(void)
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-    //setenv("TZ", "Europe/Madrid", 1);
-    //tzset();
-
 	/* Check if device is provisioned */
 	bool provisioned;
 	if (app_prov_is_provisioned(&provisioned) != ESP_OK) {
@@ -354,9 +368,6 @@ void fsm_init(void)
 		/* If not provisioned, start provisioning via soft AP */
 		protocomm_security_pop_t *pop = get_security_pop();
 		char *ssid = get_provisioning_ssid();
-		ESP_LOGI(TAG, "Starting WiFi SoftAP provisioning on ssid %s", ssid);
-		if (!pop)
-			ESP_LOGI(TAG, "pop is NULL");
 		ESP_ERROR_CHECK(app_prov_start_softap_provisioning(
 					ssid, CONFIG_EXAMPLE_PASS, PROV_SECURITY, pop));
 		free(ssid);

@@ -134,7 +134,6 @@ static void stop_prov_task(void * arg)
 static void _stop_prov_cb(void * arg)
 {
     xTaskCreate(&stop_prov_task, "stop_prov", 2048, NULL, tskIDLE_PRIORITY, NULL);
-	fsm_provisioned();
 }
 
 /* Event handler for starting/stopping provisioning */
