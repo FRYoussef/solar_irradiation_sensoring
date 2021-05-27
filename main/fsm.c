@@ -19,7 +19,6 @@
 #include "mqtt.h"
 #include "app_prov.h"
 #include "adc_reader.h"
-#include "wpa2_enterprise.h"
 
 #ifdef CONFIG_EXAMPLE_USE_SEC_1
 #define PROV_SECURITY 1
@@ -34,6 +33,28 @@ static int32_t HOUR_TO_SLEEP = CONFIG_HOUR_TO_SLEEP;
 static int32_t HOUR_TO_WAKEUP = CONFIG_HOUR_TO_WAKEUP;
 
 #define TAG "FSM"
+
+/* CA cert, taken from wpa2_ca.pem
+   Client cert, taken from wpa2_client.crt
+   Client key, taken from wpa2_client.key
+
+   The PEM, CRT and KEY file were provided by the person or organization
+   who configured the AP with wpa2 enterprise.
+
+   To embed it in the app binary, the PEM, CRT and KEY file is named
+   in the component.mk COMPONENT_EMBED_TXTFILES variable.
+*/
+#ifdef CONFIG_EXAMPLE_VALIDATE_SERVER_CERT
+extern uint8_t ca_pem_start[] asm("_binary_wpa2_ca_pem_start");
+extern uint8_t ca_pem_end[]   asm("_binary_wpa2_ca_pem_end");
+#endif /* CONFIG_EXAMPLE_VALIDATE_SERVER_CERT */
+
+#ifdef CONFIG_EXAMPLE_EAP_METHOD_TLS
+extern uint8_t client_crt_start[] asm("_binary_wpa2_client_crt_start");
+extern uint8_t client_crt_end[]   asm("_binary_wpa2_client_crt_end");
+extern uint8_t client_key_start[] asm("_binary_wpa2_client_key_start");
+extern uint8_t client_key_end[]   asm("_binary_wpa2_client_key_end");
+#endif /* CONFIG_EXAMPLE_EAP_METHOD_TLS */
 
 #ifdef CONFIG_USING_WPA2_ENTERPRISE
 static const bool using_wpa2_enterprise = true;
@@ -180,11 +201,12 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-		if (using_wpa2_enterprise)
-        	xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
         if (s_retry_num < EXAMPLE_AP_RECONN_ATTEMPTS) {
             esp_wifi_connect();
-            s_retry_num++;
+			if (using_wpa2_enterprise)
+        		xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+			else
+            	s_retry_num++;
             ESP_LOGI(TAG, "retry to connect to the AP");
         } else {
 			fsm_wifi_disconnected();
@@ -200,78 +222,72 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-static void wifi_basic_setup(void)
+static void wifi_setup_wpa2(void)
 {
+#ifdef CONFIG_EXAMPLE_VALIDATE_SERVER_CERT
+    unsigned int ca_pem_bytes = ca_pem_end - ca_pem_start;
+#endif /* CONFIG_EXAMPLE_VALIDATE_SERVER_CERT */
+
+#ifdef CONFIG_EXAMPLE_EAP_METHOD_TLS
+    unsigned int client_crt_bytes = client_crt_end - client_crt_start;
+    unsigned int client_key_bytes = client_key_end - client_key_start;
+#endif /* CONFIG_EXAMPLE_EAP_METHOD_TLS */
+
+	if (using_wpa2_enterprise)
+		ESP_LOGI(TAG, "Setting up wifi with WPA2 Enterprise");
+	else
+		ESP_LOGI(TAG, "Setting up wifi with WPA2");
+
 	/* Start WiFi station with credentials set during provisioning */
 	ESP_LOGI(TAG, "Starting WiFi station");
 	ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
 				wifi_event_handler, NULL));
 	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
 				wifi_event_handler, NULL));
+
+	if (using_wpa2_enterprise)
+		ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
+
 	/* Start Wi-Fi in station mode with credentials set during provisioning */
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-}
 
-static void wifi_setup_wpa2(void)
-{
-	ESP_LOGE(TAG, "Provisioned event when already provisioned");
-	wifi_basic_setup();
-	ESP_ERROR_CHECK(esp_wifi_start());
-}
-
-static void wifi_setup_wpa2_enterprise(void)
-{
-	//ESP_ERROR_CHECK(esp_netif_init());
-	//wifi_event_group = xEventGroupCreate();
-	//esp_event_loop_delete_default();
-	//ESP_ERROR_CHECK(esp_event_loop_create_default());
-	//esp_event_loop_create_default();
-	//sta_netif = esp_netif_create_default_wifi_sta();
-	//ESP_LOGI(TAG, "NETIF create called ...");
-	//assert(sta_netif);
-	//ESP_LOGI(TAG, "NETIF create correctly. Now init WIFI ...");
-	//wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-	//ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-
-	wifi_basic_setup();
-
-	ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-	wifi_config_t wifi_config = {
-		.sta = {
-			.ssid = EXAMPLE_WIFI_SSID,
-		},
-	};
-	ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
-	ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
-	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_identity(
-				(uint8_t *)EXAMPLE_EAP_ID, strlen(EXAMPLE_EAP_ID)) );
+	if (using_wpa2_enterprise) {
+		wifi_config_t wifi_config = {
+			.sta = {
+				.ssid = EXAMPLE_WIFI_SSID,
+			},
+		};
+		ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
+		ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
+		ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_identity(
+					(uint8_t *)EXAMPLE_EAP_ID, strlen(EXAMPLE_EAP_ID)) );
 
 #ifdef CONFIG_EXAMPLE_VALIDATE_SERVER_CERT
-	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_ca_cert(wpa2_ca_pem,
-				wpa2_ca_pem_len) );
+		ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_ca_cert(ca_pem_start, ca_pem_bytes) );
 #endif /* CONFIG_EXAMPLE_VALIDATE_SERVER_CERT */
 
 #ifdef CONFIG_EXAMPLE_EAP_METHOD_TLS
-	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_cert_key(wpa2_client_crt,
-				wpa2_client_crt_len, wpa2_client_key, wpa2_client_key_len, NULL,
-				0));
+		ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_cert_key(client_crt_start, client_crt_bytes,\
+					client_key_start, client_key_bytes, NULL, 0) );
 #endif /* CONFIG_EXAMPLE_EAP_METHOD_TLS */
 
 #if defined CONFIG_EXAMPLE_EAP_METHOD_PEAP || CONFIG_EXAMPLE_EAP_METHOD_TTLS
-	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_username(
-				(uint8_t *)EXAMPLE_EAP_USERNAME, strlen(EXAMPLE_EAP_USERNAME)));
-	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_password(
-				(uint8_t *)EXAMPLE_EAP_PASSWORD, strlen(EXAMPLE_EAP_PASSWORD)));
-	ESP_LOGI(TAG, "Credentials %s...%s", EXAMPLE_EAP_USERNAME,EXAMPLE_EAP_PASSWORD);
+		ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_username(
+					(uint8_t *)EXAMPLE_EAP_USERNAME, strlen(EXAMPLE_EAP_USERNAME)) );
+		ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_password(
+					(uint8_t *)EXAMPLE_EAP_PASSWORD, strlen(EXAMPLE_EAP_PASSWORD)) );
+		ESP_LOGI(TAG, "Credentials %s...%s", EXAMPLE_EAP_USERNAME,EXAMPLE_EAP_PASSWORD);
 
 #endif /* CONFIG_EXAMPLE_EAP_METHOD_PEAP || CONFIG_EXAMPLE_EAP_METHOD_TTLS */
 
 #if defined CONFIG_EXAMPLE_EAP_METHOD_TTLS
-	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_ttls_phase2_method(TTLS_PHASE2_METHOD) );
+		ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_ttls_phase2_method(TTLS_PHASE2_METHOD) );
 #endif /* CONFIG_EXAMPLE_EAP_METHOD_TTLS */
 
-	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_enable() );
-	ESP_ERROR_CHECK( esp_wifi_start() );
+		ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_enable() );
+	}
+
+	ESP_ERROR_CHECK(esp_wifi_start());
 }
 
 #ifdef CONFIG_EXAMPLE_SSID
@@ -429,18 +445,13 @@ void fsm_wifi_disconnected(void)
 
 void fsm_provisioned(void)
 {
-	if (provisioned) {
-		ESP_LOGI(TAG, "Node is provisioned (WPA2)");
+	if (provisioned || using_wpa2_enterprise) {
+		provisioned = true;
 		wifi_setup_wpa2();
 	} else {
 		provisioned = true;
-		if (using_wpa2_enterprise) {
-			ESP_LOGE(TAG, "Using WPA2 Enterprise");
-			wifi_setup_wpa2_enterprise();
-		} else {
-			ESP_LOGI(TAG, "Node just provisioned with WPA2");
-			fsm_wifi_connected(); // app_prov leaves the node already connected
-		}
+		ESP_LOGI(TAG, "Node just provisioned with WPA2");
+		fsm_wifi_connected(); // app_prov leaves the node already connected
 	}
 }
 
@@ -472,7 +483,8 @@ void fsm_init(void)
 	assert(sta_netif);
 	ESP_LOGI(TAG, "NETIF create correctly. Now init WIFI ...");
 
-	esp_netif_create_default_wifi_ap();
+	if (!using_wpa2_enterprise)
+		esp_netif_create_default_wifi_ap();
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 

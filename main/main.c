@@ -26,8 +26,8 @@ extern void redireccionaLogs(void);
 void app_main(void)
 {
     //Just redirect error logs
-    //esp_log_level_set("*", ESP_LOG_ERROR);
-    esp_log_level_set("*", ESP_LOG_VERBOSE);
+    esp_log_level_set("*", ESP_LOG_ERROR);
+    //esp_log_level_set("*", ESP_LOG_VERBOSE);
     //redireccionaLogs();
 
     // Configuramos el gestor de energia
