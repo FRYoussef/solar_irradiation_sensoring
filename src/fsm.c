@@ -200,10 +200,8 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-static void wifi_setup_wpa2(void)
+static void wifi_basic_setup(void)
 {
-	ESP_LOGE(TAG, "Provisioned event when already provisioned");
-
 	/* Start WiFi station with credentials set during provisioning */
 	ESP_LOGI(TAG, "Starting WiFi station");
 	ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
@@ -212,26 +210,31 @@ static void wifi_setup_wpa2(void)
 				wifi_event_handler, NULL));
 	/* Start Wi-Fi in station mode with credentials set during provisioning */
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+}
+
+static void wifi_setup_wpa2(void)
+{
+	ESP_LOGE(TAG, "Provisioned event when already provisioned");
+	wifi_basic_setup();
 	ESP_ERROR_CHECK(esp_wifi_start());
 }
 
 static void wifi_setup_wpa2_enterprise(void)
 {
-	ESP_ERROR_CHECK(esp_netif_init());
-	wifi_event_group = xEventGroupCreate();
-	esp_event_loop_delete_default();
-	ESP_ERROR_CHECK(esp_event_loop_create_default());
+	//ESP_ERROR_CHECK(esp_netif_init());
+	//wifi_event_group = xEventGroupCreate();
+	//esp_event_loop_delete_default();
+	//ESP_ERROR_CHECK(esp_event_loop_create_default());
 	//esp_event_loop_create_default();
-	sta_netif = esp_netif_create_default_wifi_sta();
-	ESP_LOGI(TAG, "NETIF create called ...");
-	assert(sta_netif);
-	ESP_LOGI(TAG, "NETIF create correctly. Now init WIFI ...");
-	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-	ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-	ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
-				&wifi_event_handler, NULL) );
-	ESP_ERROR_CHECK( esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
-				&wifi_event_handler, NULL) );
+	//sta_netif = esp_netif_create_default_wifi_sta();
+	//ESP_LOGI(TAG, "NETIF create called ...");
+	//assert(sta_netif);
+	//ESP_LOGI(TAG, "NETIF create correctly. Now init WIFI ...");
+	//wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+	//ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+
+	wifi_basic_setup();
+
 	ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
 	wifi_config_t wifi_config = {
 		.sta = {
@@ -239,7 +242,6 @@ static void wifi_setup_wpa2_enterprise(void)
 		},
 	};
 	ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
-	ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
 	ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
 	ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_identity(
 				(uint8_t *)EXAMPLE_EAP_ID, strlen(EXAMPLE_EAP_ID)) );
@@ -428,14 +430,17 @@ void fsm_wifi_disconnected(void)
 void fsm_provisioned(void)
 {
 	if (provisioned) {
-		if (using_wpa2_enterprise)
-			wifi_setup_wpa2_enterprise();
-		else
-			wifi_setup_wpa2();
+		ESP_LOGI(TAG, "Node is provisioned (WPA2)");
+		wifi_setup_wpa2();
 	} else {
-		ESP_LOGE(TAG, "Provisioned event when not already provisioned");
 		provisioned = true;
-		fsm_wifi_connected(); // app_prov leaves the node already connected
+		if (using_wpa2_enterprise) {
+			ESP_LOGE(TAG, "Using WPA2 Enterprise");
+			wifi_setup_wpa2_enterprise();
+		} else {
+			ESP_LOGI(TAG, "Node just provisioned with WPA2");
+			fsm_wifi_connected(); // app_prov leaves the node already connected
+		}
 	}
 }
 
@@ -451,6 +456,9 @@ void fsm_init(void)
     /* Initialize networking stack */
     ESP_ERROR_CHECK(esp_netif_init());
 
+	if (using_wpa2_enterprise)
+		wifi_event_group = xEventGroupCreate();
+
     /* Create default event loop needed by the
      * main app and the provisioning service */
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -459,7 +467,11 @@ void fsm_init(void)
     ESP_ERROR_CHECK(nvs_flash_init());
 
 	/* Initialize Wi-Fi including netif with default config */
-	esp_netif_create_default_wifi_sta();
+	sta_netif = esp_netif_create_default_wifi_sta();
+	ESP_LOGI(TAG, "NETIF create called ...");
+	assert(sta_netif);
+	ESP_LOGI(TAG, "NETIF create correctly. Now init WIFI ...");
+
 	esp_netif_create_default_wifi_ap();
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -471,6 +483,7 @@ void fsm_init(void)
 	}
 
     if (!provisioned && !using_wpa2_enterprise) {
+		ESP_LOGE(TAG, "Node is not provisioned, starting provisioning App");
 		/* If not provisioned, start provisioning via soft AP */
 		protocomm_security_pop_t *pop = get_security_pop();
 		char *ssid = get_provisioning_ssid();
@@ -479,7 +492,6 @@ void fsm_init(void)
 		free(ssid);
 		free(pop);
 	} else {
-		ESP_LOGI(TAG, "Node is provisioned");
 		fsm_provisioned();
 	}
 }
