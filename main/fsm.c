@@ -116,18 +116,19 @@ static int deep_sleep_wakeup_schedule(uint64_t *h, uint64_t  *m)
 {
     time_t now;
     struct tm timeinfo;
+    time(&now);
     localtime_r(&now, &timeinfo);
 	int schedule = 1;
 
 	if (timeinfo.tm_hour >= HOUR_TO_WAKEUP && timeinfo.tm_hour < HOUR_TO_SLEEP) {
-    	ESP_LOGW(TAG, "durint uptime hours");
+    	ESP_LOGW(TAG, "no deep sleep during uptime hours");
 		schedule = 0;
 	} else if (timeinfo.tm_hour < HOUR_TO_WAKEUP) {
-    	ESP_LOGW(TAG, "after midnight");
+    	ESP_LOGW(TAG, "going to deep sleep after midnight");
     	*h = HOUR_TO_WAKEUP - timeinfo.tm_hour - 1;
 		*m = 60 - timeinfo.tm_min;
 	} else {
-    	ESP_LOGI(TAG, "before midnight");
+    	ESP_LOGI(TAG, "going to deep sleep before midnight");
     	*h = 24 - 1 - timeinfo.tm_hour + HOUR_TO_WAKEUP;
 		*m = 60 - timeinfo.tm_min;
 	}
