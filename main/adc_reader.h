@@ -5,5 +5,5 @@ int adc_reader_setup(void);
 void adc_reader_update(char *topic, char *data);
 int adc_reader_stop_send_timers(void);
 int adc_reader_start_send_timers(void);
-
+void adc_reader_deepsleep(void);
 #endif

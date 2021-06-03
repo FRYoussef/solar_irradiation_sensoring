@@ -39,7 +39,7 @@
 #define MAX_INFLUXDB_FIELDS 4
 #define MAX_INFLUXDB_STRING 128
 #define INFLUXDB_MEASUREMENT "cabahla"
-#define INFLUXDB_LOCATION ",id=v1-n8"
+#define INFLUXDB_LOCATION ",id=v1-n6"
 #define FIELD_IRRADIATION "irradiation"
 #define FIELD_BATTERY "battery"
 
@@ -173,6 +173,13 @@ static esp_err_t power_pin_setup(void)
 static esp_err_t power_pin_down(void)
 {
     return gpio_set_level(POWER_PIN, 0);
+}
+
+void adc_reader_deepsleep(void)
+{
+#ifdef CONFIG_SHUT_DOWN_POWER_PIN
+	power_pin_down();
+#endif
 }
 
 static esp_err_t power_pin_up(void)
