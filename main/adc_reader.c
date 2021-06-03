@@ -177,7 +177,7 @@ static esp_err_t power_pin_down(void)
 
 void adc_reader_deepsleep(void)
 {
-#ifdef CONFIG_SHUT_DOWN_POWER_PIN
+#ifdef CONFIG_SHUT_DOWN_POWER_PIN_DEEPSLEEP
 	power_pin_down();
 #endif
 }
@@ -215,10 +215,12 @@ static void sampling_timer_callback(void * args)
     int adc_index = (int) args;
 
     int data, sample = 0;
+#ifdef CONFIG_SHUT_DOWN_POWER_PIN
     if (adc_index == IRRADIATION_ADC_INDEX) {
         power_pin_up();
         vTaskDelay(pdMS_TO_TICKS(50));
     }
+#endif
     for(int i= 0 ; i < adc_params[adc_index].n_samples; i++){
         if (adc_params[adc_index].get_mv(&data, adc_index))
             ESP_LOGE(TAG, "Error reading ADC with index %d", adc_index);
@@ -226,8 +228,10 @@ static void sampling_timer_callback(void * args)
             sample += data;
     }
     sample = (int) sample / adc_params[adc_index].n_samples;
+#ifdef CONFIG_SHUT_DOWN_POWER_PIN
     if (adc_index == IRRADIATION_ADC_INDEX)
         power_pin_down();
+#endif
     ESP_LOGI(TAG, "Sample from ADC(%d) = %d", adc_index, sample);
 
     //Save the taken sample in the circular buffer

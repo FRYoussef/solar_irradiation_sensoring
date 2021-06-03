@@ -143,9 +143,7 @@ static void go_deep_sleep(void * args)
 		us = hm2us(h, m);
 		ESP_LOGI(TAG, "Deep sleep for %llu hours %llu minutes (%llu us)", h, m,
 				us);
-#ifdef CONFIG_SHUT_DOWN_POWER_PIN
-		power_pin_down();
-#endif
+		adc_reader_deepsleep();
 		esp_sleep_enable_timer_wakeup(us);
 		/* Do enter deep sleep */
 		esp_deep_sleep_start();
