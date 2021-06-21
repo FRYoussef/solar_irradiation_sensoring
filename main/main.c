@@ -35,7 +35,7 @@ void app_main(void)
     esp_pm_config_esp32_t config = {
         .max_freq_mhz = CONFIG_MAX_CPU_FREQ_MHZ,
         .min_freq_mhz = CONFIG_MIN_CPU_FREQ_MHZ,
-        .light_sleep_enable = true
+        .light_sleep_enable = EP_LIGHT_SLEEP_ENABLE,
     };
     esp_pm_configure(&config);
 
