@@ -19,6 +19,7 @@
 #include "mqtt.h"
 #include "app_prov.h"
 #include "adc_reader.h"
+#include "energy-prof.h"
 
 #ifdef CONFIG_EXAMPLE_USE_SEC_1
 #define PROV_SECURITY 1
@@ -354,8 +355,12 @@ void fsm_mqtt_connected(void)
 			ESP_LOGE(TAG, "Failed to create adc_reader module.");
 		adc_config = true;
 	}
+#ifdef EP_DO_SAMPLE
 	adc_reader_start_sample_timers();
+#ifdef EP_DO_SEND
 	adc_reader_start_send_timers();
+#endif
+#endif
 }
 
 void fsm_ntp_sync(void)
@@ -396,8 +401,10 @@ void fsm_ntp_sync(void)
 		go_deep_sleep(NULL);
 	}
 
+#ifdef EP_DO_CONNECT_MQTT
 	if (!mqtt_conn)
 		mqtt_app_start();
+#endif
 }
 
 void fsm_wifi_connected(void)

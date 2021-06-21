@@ -18,6 +18,7 @@
 
 #include "esp_sleep.h"
 #include "esp_pm.h"
+#include "energy-prof.h"
 
 #include "freertos/task.h"
 
@@ -38,6 +39,11 @@ void app_main(void)
     };
     esp_pm_configure(&config);
 
+#ifdef EP_FULL_DEEP_SLEEP
+	esp_sleep_enable_timer_wakeup((uint64_t)5*60*1000000LL);
+	esp_deep_sleep_start();
+#else
 	fsm_init();
+#endif
     vTaskSuspend(NULL);
 }
