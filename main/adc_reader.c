@@ -23,6 +23,8 @@
 #define N_ADC_MEASURES 2 // number of ADCs used for own measures (different
                         //channels could be used to calculate the same measure)
 
+#define N_BROKER_SENDERS 1 // number independent sender timers
+
 /* BIAS for the measuring circuit
  * bias = vdd * dac_value / 255
  * computation in mv to avoid floating point
@@ -130,8 +132,6 @@ static struct send_sample_buffer adcs_send_buffers[N_ADC_MEASURES] = {
 };
 
 static esp_timer_handle_t sampling_timer[N_ADC_MEASURES];
-static esp_timer_handle_t broker_sender_timer[N_ADC_MEASURES];
-
 static esp_timer_create_args_t sample_timer_args[] = {
     {
         .callback = &sampling_timer_callback,
@@ -145,17 +145,13 @@ static esp_timer_create_args_t sample_timer_args[] = {
     },
 };
 
-static esp_timer_create_args_t broker_sender_timer_args[] = {
+static esp_timer_handle_t broker_sender_timer[N_BROKER_SENDERS];
+static esp_timer_create_args_t broker_sender_timer_args[N_BROKER_SENDERS] = {
     {
         .callback = &broker_sender_callback,
         .name = "broker_timer_adc",
         .arg = (void *) NFIELDS,
     },
-//    {
-//        .callback = &broker_sender_callback,
-//        .name = "broker_timer_battery_adc",
-//        .arg = (void *)&BATTERY_ADC_INDEX,
-//    },
 };
 
 static esp_err_t power_pin_setup(void)
@@ -326,38 +322,16 @@ static int adcs_setup(void)
     return ret;
 }
 
-static int start_timer(int adc, esp_timer_handle_t timer, int freq)
-{
-    esp_err_t ret = esp_timer_start_periodic(timer, freq*1000000);
-    if (ret != ESP_OK){
-        ESP_LOGE(TAG, "Error starting timer from ADC %d", adc);
-        return 1;
-    }
-    return 0;
-}
-
-static int stop_timer(int adc, esp_timer_handle_t timer)
-{
-    esp_err_t ret = esp_timer_stop(timer);
-    if (ret != ESP_OK){
-        ESP_LOGE(TAG, "Error stopping timer from ADC %d", adc);
-        return 1;
-    }
-
-    return 0;
-}
-
-
 static int change_sample_frequency(int sample_freq, int adc)
 {
-    if (stop_timer(adc, sampling_timer[adc]))
+    if (esp_timer_stop(sampling_timer[adc]))
         return 1;
 
     vTaskDelay(pdMS_TO_TICKS(500));
 
     adc_params[adc].sample_frequency = sample_freq;
 
-    if (start_timer(adc, sampling_timer[adc], adc_params[adc].sample_frequency))
+    if (esp_timer_start_periodic(sampling_timer[adc], adc_params[adc].sample_frequency*1000000))
         return 1;
 
     ESP_LOGI(TAG, "Changed sample frequency to %d s in ADC %d", sample_freq, adc);
@@ -365,14 +339,14 @@ static int change_sample_frequency(int sample_freq, int adc)
 }
 
 static int change_broker_sender_frequency(int send_freq, int adc) {
-    if (stop_timer(adc, broker_sender_timer[adc]))
+    if (esp_timer_stop(broker_sender_timer[adc]))
         return 1;
 
     vTaskDelay(pdMS_TO_TICKS(500));
 
     adc_params[adc].send_frenquency = send_freq;
 
-    if (start_timer(adc, broker_sender_timer[adc], adc_params[adc].send_frenquency))
+    if (esp_timer_start_periodic(broker_sender_timer[adc], adc_params[adc].send_frenquency*1000000))
         return 1;
 
     ESP_LOGI(TAG, "Changed broker send frequency to %d s in ADC %d", send_freq, adc);
@@ -380,14 +354,14 @@ static int change_broker_sender_frequency(int send_freq, int adc) {
 }
 
 static int change_sample_number(int n_samples, int adc) {
-    if (stop_timer(adc, sampling_timer[adc]))
+    if (esp_timer_stop(sampling_timer[adc]))
         return 1;
 
     vTaskDelay(pdMS_TO_TICKS(500));
 
     adc_params[adc].n_samples = n_samples;
 
-    if (start_timer(adc, sampling_timer[adc], adc_params[adc].sample_frequency))
+    if (esp_timer_start_periodic(sampling_timer[adc], adc_params[adc].sample_frequency*1000000))
         return 1;
 
     ESP_LOGI(TAG, "Changed sample number to %d in ADC %d", n_samples, adc);
@@ -462,26 +436,31 @@ int adc_reader_setup(void)
     ESP_LOGI(TAG, "Done. Now programming timers");
 
     // timers configuration
-    for(int i = 0; i < N_ADC_MEASURES; i++) {
-        // sampling adc timer
+    for(int i = 0; i < N_ADC_MEASURES; i++)
         esp_timer_create(&sample_timer_args[i], &sampling_timer[i]);
-        esp_timer_start_periodic(sampling_timer[i], adc_params[i].sample_frequency*1000000);
-    }
 
-    // broker sender timer. Just use one callback and send all the data (irradiation and battery
-    // in the same message.
-    ESP_LOGD(TAG, "Inicialazing broker sender timer\n");
-    esp_timer_create(&broker_sender_timer_args[0], &broker_sender_timer[0]);
-    esp_timer_start_periodic(broker_sender_timer[0], adc_params[0].send_frenquency*1000000);
+	ESP_LOGD(TAG, "Inicialazing broker sender timers\n");
+    for(int i = 0; i < N_BROKER_SENDERS; i++)
+		esp_timer_create(&broker_sender_timer_args[i], &broker_sender_timer[i]);
 
     return 0;
 }
 
-int adc_reader_stop_send_timers(void)
+int adc_reader_start_sample_timers(void)
+{
+    int ret = 0;
+
+    for(int i = 0; i < N_ADC_MEASURES; i++)
+        ret |= esp_timer_start_periodic(sampling_timer[i], adc_params[i].sample_frequency*1000000);
+
+    return ret;
+}
+
+int adc_reader_stop_sample_timers(void)
 {
     int ret = 0;
     for(int i = 0; i < N_ADC_MEASURES; i++)
-        ret |= stop_timer(i, broker_sender_timer[i]);
+        ret |= esp_timer_stop(sampling_timer[i]);
 
     return ret;
 }
@@ -490,8 +469,18 @@ int adc_reader_start_send_timers(void)
 {
     int ret = 0;
 
-    for(int i = 0; i < N_ADC_MEASURES; i++)
-        ret |= start_timer(i, broker_sender_timer[i], adc_params[i].send_frenquency);
+    for(int i = 0; i < N_BROKER_SENDERS; i++)
+        ret |= esp_timer_start_periodic(broker_sender_timer[i], adc_params[i].send_frenquency*1000000);
 
     return ret;
 }
+
+int adc_reader_stop_send_timers(void)
+{
+    int ret = 0;
+    for(int i = 0; i < N_BROKER_SENDERS; i++)
+        ret |= esp_timer_stop(broker_sender_timer[i]);
+
+    return ret;
+}
+

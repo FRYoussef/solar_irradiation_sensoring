@@ -340,6 +340,7 @@ void fsm_mqtt_disconnected(void)
 		ESP_LOGW(TAG, "MQTT disconnected event when not connected");
 	mqtt_conn = false;
     adc_reader_stop_send_timers();
+	adc_reader_stop_sample_timers();
 }
 
 void fsm_mqtt_connected(void)
@@ -353,6 +354,7 @@ void fsm_mqtt_connected(void)
 			ESP_LOGE(TAG, "Failed to create adc_reader module.");
 		adc_config = true;
 	}
+	adc_reader_start_sample_timers();
 	adc_reader_start_send_timers();
 }
 
