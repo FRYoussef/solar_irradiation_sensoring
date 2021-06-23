@@ -41,7 +41,7 @@
 #define MAX_INFLUXDB_FIELDS 4
 #define MAX_INFLUXDB_STRING 128
 #define INFLUXDB_MEASUREMENT "cabahla"
-#define INFLUXDB_LOCATION ",id=v1-n6"
+#define INFLUXDB_LOCATION ",id=v1-energy-prof"
 #define FIELD_IRRADIATION "irradiation"
 #define FIELD_BATTERY "battery"
 
