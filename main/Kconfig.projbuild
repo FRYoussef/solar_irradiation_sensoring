@@ -205,18 +205,14 @@ menu "Solar Irradiation Configuration"
 
     endmenu
 
+	menu "External Antenna"
+        config USE_EXTERNAL_ANTENNA
+			bool "Use external wifi antenna instead of the internal one"
+			default n
+	endmenu
+
     menu "Power managment"
-		menu "Measuring"
-            config SHUT_DOWN_POWER_PIN
-                bool "Shuts down the board power pin to reduce consumption after sampling"
-                default n
-        endmenu
-
         menu "Deep sleep"
-            config DEEP_SLEEP
-                bool "Enable deep sleep mode"
-                default y
-
             config HOUR_TO_SLEEP
                 int "Deep sleep start hour (0-23)"
                 default 22
@@ -230,10 +226,6 @@ menu "Solar Irradiation Configuration"
                 range 0 23
                 help
                     Hora de despertar al sistema.
-
-            config SHUT_DOWN_POWER_PIN_DEEPSLEEP
-                bool "Shuts down the board power pin to reduce consumption during deep sleep mode"
-                default n
         endmenu
 
 		choice EXAMPLE_MAX_CPU_FREQ
