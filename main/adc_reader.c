@@ -41,7 +41,7 @@
 #define MAX_INFLUXDB_FIELDS 4
 #define MAX_INFLUXDB_STRING 128
 #define INFLUXDB_MEASUREMENT "cabahla"
-#define INFLUXDB_LOCATION ",id=v1-n9-hwn1"
+#define INFLUXDB_LOCATION ",id=v1-n12"
 #define FIELD_IRRADIATION "irradiation"
 #define FIELD_BATTERY "battery"
 
@@ -373,6 +373,19 @@ static int change_sample_number(int n_samples, int adc) {
     return 0;
 }
 
+static void wait_for_next_minute(void)
+{
+    struct timeval tv_now;
+	int64_t delta_ms;
+
+    gettimeofday(&tv_now, NULL);
+    delta_ms = (60 - (int64_t)(tv_now.tv_sec%60))* 1000 -  ((int64_t)tv_now.tv_usec/1000);
+	if (delta_ms < 0)
+		delta_ms = 0;
+    ESP_LOGI(TAG, "Wait for delta_ms: %li ms ", (long)delta_ms);
+    vTaskDelay(delta_ms / portTICK_PERIOD_MS);
+}
+
 /*******************************************************************************
  * Public functions
  *******************************************************************************/
@@ -407,9 +420,6 @@ void adc_reader_update(char *topic, char *data)
 
 int adc_reader_setup(void)
 {
-    struct timeval tv_now;
-	int64_t delta_ms;
-
     // allocate memory for send buffers
     for(int i = 0; i < N_ADC_MEASURES; i++)
         adcs_send_buffers[i].samples = malloc(sizeof(int) * adc_params[i].window_size);
@@ -432,14 +442,6 @@ int adc_reader_setup(void)
         return 1;
     }
 
-    gettimeofday(&tv_now, NULL);
-    delta_ms = (60 - (int64_t)(tv_now.tv_sec%60))* 1000 -  ((int64_t)tv_now.tv_usec/1000);
-	if (delta_ms < 0)
-		delta_ms = 0;
-    ESP_LOGI(TAG, "Wait for delta_ms before programming timers: %li ms ", (long)delta_ms);
-    vTaskDelay(delta_ms / portTICK_PERIOD_MS);
-    ESP_LOGI(TAG, "Done. Now programming timers");
-
     // timers configuration
     for(int i = 0; i < N_ADC_MEASURES; i++)
         esp_timer_create(&sample_timer_args[i], &sampling_timer[i]);
@@ -455,6 +457,10 @@ int adc_reader_start_sample_timers(void)
 {
     int ret = 0;
 
+    ESP_LOGI(TAG, "Waiting until the start of the next minute");
+	wait_for_next_minute();
+
+    ESP_LOGI(TAG, "Now programming timers");
     for(int i = 0; i < N_ADC_MEASURES; i++)
         ret |= esp_timer_start_periodic(sampling_timer[i], adc_params[i].sample_frequency*1000000);
 
