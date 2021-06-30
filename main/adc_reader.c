@@ -41,7 +41,7 @@
 #define MAX_INFLUXDB_FIELDS 4
 #define MAX_INFLUXDB_STRING 128
 #define INFLUXDB_MEASUREMENT "cabahla"
-#define INFLUXDB_LOCATION ",id=v1-n12"
+#define INFLUXDB_LOCATION ",id=v1-n20"
 #define FIELD_IRRADIATION "irradiation"
 #define FIELD_BATTERY "battery"
 
@@ -380,10 +380,10 @@ static void wait_for_next_minute(void)
 
     gettimeofday(&tv_now, NULL);
     delta_ms = (60 - (int64_t)(tv_now.tv_sec%60))* 1000 -  ((int64_t)tv_now.tv_usec/1000);
-	if (delta_ms < 0)
-		delta_ms = 0;
-    ESP_LOGI(TAG, "Wait for delta_ms: %li ms ", (long)delta_ms);
-    vTaskDelay(delta_ms / portTICK_PERIOD_MS);
+	if (delta_ms > 0) {
+		ESP_LOGI(TAG, "Wait for delta_ms: %li ms ", (long)delta_ms);
+		vTaskDelay(delta_ms / portTICK_PERIOD_MS);
+	}
 }
 
 /*******************************************************************************
