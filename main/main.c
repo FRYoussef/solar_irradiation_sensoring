@@ -3,6 +3,7 @@
 #include "sdkconfig.h"
 #include "mqtt_client.h"
 #include "fsm.h"
+#include "ota.h"
 
 #include "esp_wifi.h"
 #include "esp_system.h"
@@ -37,6 +38,8 @@ void app_main(void)
         .light_sleep_enable = true
     };
     esp_pm_configure(&config);
+
+	ota_client_start();
 
 	fsm_init();
     vTaskSuspend(NULL);
