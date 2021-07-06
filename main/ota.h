@@ -3,4 +3,7 @@
 
 // header file for the OTA module
 
+int ota_client_start(void);
+int ota_check_updates(void);
+
 #endif
