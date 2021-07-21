@@ -19,6 +19,8 @@
 #include "mqtt.h"
 #include "app_prov.h"
 #include "adc_reader.h"
+#include "si7021.h"
+
 
 #ifdef CONFIG_EXAMPLE_USE_SEC_1
 #define PROV_SECURITY 1
@@ -99,6 +101,8 @@ static bool ntp_sync    = false;
 static bool ntp_init    = false;
 static bool mqtt_conn   = false;
 static bool adc_config  = false;
+static bool i2c_config  = false;
+
 
 static esp_timer_handle_t deep_sleep_timer;
 
@@ -367,6 +371,12 @@ void fsm_mqtt_connected(void)
 		if(adc_reader_setup())
 			ESP_LOGE(TAG, "Failed to create adc_reader module.");
 		adc_config = true;
+	}
+
+	if (!i2c_config) {
+		if (i2c_tempSensor_setup())
+			ESP_LOGE(TAG, "Failed to create i2c  module.");
+		i2c_config = true;
 	}
 	adc_reader_start_sample_timers();
 	adc_reader_start_send_timers();

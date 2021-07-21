@@ -11,6 +11,7 @@
 #include <esp_adc_cal.h>
 #include <string.h>
 #include "adc_reader.h"
+#include "si7021.h"
 #include "mqtt.h"
 #include "freertos/task.h"
 
@@ -244,16 +245,24 @@ static void sampling_timer_callback(void * args)
 static char* buildInfluxDBString(int nfields)
 {
     char* str = (char*) malloc(MAX_INFLUXDB_STRING);
+    float temp;
     sprintf(str,INFLUXDB_MEASUREMENT);
     sprintf(eos(str),INFLUXDB_LOCATION);
     sprintf(eos(str)," "); // space between TAGS and FILEDS
     for (int i=0; i < (nfields-1); i++ )
         sprintf(eos(str),"%s=%d,",adc_params[i].influxdb_field,adc_params[i].last_mean);
 
-    // last field without comma
+    // FIXME Include temperature reading rith here.
+    // Shoult be refactored maybe generalizing adc_params (not to be ADC specific)
+    readTemperature(I2C_NUM_0,&temp);
+    sprintf(eos(str),"%s=%d,","temp",(int)temp);
+
+    // last adc field without comma
     sprintf(eos(str),"%s=%d ", adc_params[nfields-1].influxdb_field, adc_params[nfields-1].last_mean);
 
-    // TODO include timestamp in nanoseconds
+
+
+    //  include timestamp in nanoseconds
 	struct timeval tv_now;
 	gettimeofday(&tv_now, NULL);
 	int64_t time_ns = ((int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec) * 1000;
