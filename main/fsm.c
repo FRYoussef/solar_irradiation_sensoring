@@ -105,6 +105,20 @@ static esp_timer_handle_t deep_sleep_timer;
 /*******************************************************************************
  * Private functions
  *******************************************************************************/
+
+void debug_print_mac(void)
+{
+	uint8_t mac[6];
+	char mac_str[18];
+
+	ESP_ERROR_CHECK_WITHOUT_ABORT( esp_wifi_get_mac(WIFI_IF_STA, mac) );
+
+	snprintf(mac_str, 18, "%02X:%02X:%02X:%02X:%02X:%02X",
+			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+	ESP_LOGI(TAG, "MAC is %s", mac_str);
+}
+
 static uint64_t hm2us(int hours, int minutes)
 {
     uint64_t tm = (long long int)(minutes + 60*hours);
@@ -488,6 +502,8 @@ void fsm_init(void)
 		esp_netif_create_default_wifi_ap();
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+	debug_print_mac();
 
 	/* Check if device is provisioned */
 	if (app_prov_is_provisioned(&provisioned) != ESP_OK) {
