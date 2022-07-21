@@ -2,37 +2,32 @@
 #include "esp_log.h"
 #include "sdkconfig.h"
 #include "mqtt_client.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_system.h"
-#include "esp_spi_flash.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <esp_system.h>
+#include <esp_spi_flash.h>
+#include <esp_timer.h>
 #include <driver/adc.h>
-#include <driver/dac.h>
+#include <sys/time.h>
 #include <esp_adc_cal.h>
 #include <string.h>
 #include "adc_reader.h"
 #include "mqtt.h"
 #include "freertos/task.h"
 
-#define POWER_PIN 21  // GPIO 21, P12 from LoPy4
-#define BATTERY_ADC_GAIN 3 // We meassure a fraction of the battery voltage
+#define POWER_PIN 4  // GPIO 4, en la nueva placa
+#define BATTERY_ADC_GAIN 2 // We meassure a fraction 1/2 of the battery voltage
 #define eos(s) ((s) + strlen(s))
 
 // define number of ADCs to read, and its indices
-#define N_ADC 3 // ADC channels used
+#define N_ADC 2 // ADC channels used
 #define N_ADC_MEASURES 2 // number of ADCs used for own measures (different
                         //channels could be used to calculate the same measure)
 
-#define N_BROKER_SENDERS 1 // number independent sender timers
+// Espressif recommends to average several adc reads (64, 128 or 256)
+#define N_ADC_READS 128
 
-/* BIAS for the measuring circuit
- * bias = vdd * dac_value / 255
- * computation in mv to avoid floating point
- */
-#define VDD  3300 // mv
-#define BIAS 500  // mv
-#define BIAS_DAC_VALUE (((BIAS * 255) + VDD/2)/ VDD)
-#define DAC_CHANNEL DAC_CHANNEL_1
+#define N_BROKER_SENDERS 1 // number independent sender timers
 
 #define ADC_VREF 1100
 #define ADC_ATTENUATION ADC_ATTEN_DB_11
@@ -107,22 +102,11 @@ static struct adc_config_params adc_params[N_ADC] = {
         .sample_frequency = CONFIG_SAMPLE_FREQ_BATTERY,
         .send_frenquency = CONFIG_SEND_FREQ_BATTERY,
         .n_samples = CONFIG_N_SAMPLES_BATTERY,
-        .channel = ADC1_CHANNEL_1,
+        .channel = ADC1_CHANNEL_3,
         .influxdb_field = FIELD_BATTERY,
         .get_mv = get_battery_mv,
         .last_mean = 0,
 
-    },
-    // bias params. Many of its parameters are not used, it is used to calculate irradiation value
-    {
-        .window_size = CONFIG_WINDOW_SIZE_IRRAD,
-        .sample_frequency = CONFIG_SAMPLE_FREQ_IRRAD,
-        .send_frenquency = CONFIG_SEND_FREQ_IRRAD,
-        .n_samples = CONFIG_N_SAMPLES_IRRAD,
-        .channel = ADC1_CHANNEL_6,
-        .influxdb_field = "",
-        .get_mv = get_adc_mv,
-        .last_mean = 0,
     },
 };
 
@@ -190,8 +174,16 @@ static esp_err_t power_pin_up(void)
 
 static int get_adc_mv(int *value, int adc_index)
 {
-    int adc_val = adc1_get_raw(adc_params[adc_index].channel);
-    *value = esp_adc_cal_raw_to_voltage(adc_val, &adc_params[adc_index].adc_chars);
+	int acum_mv = 0, mv, adc_val, i;
+
+	// Espressif recommends to average several adc reads (64, 128 or 256)
+	for (i = 0; i < N_ADC_READS; i++) {
+		adc_val = adc1_get_raw(adc_params[adc_index].channel);
+		mv = esp_adc_cal_raw_to_voltage(adc_val, &adc_params[adc_index].adc_chars);
+		acum_mv += mv;
+	}
+	*value = acum_mv / N_ADC_READS;
+
     return 0;
 }
 
@@ -204,10 +196,11 @@ static int get_battery_mv(int *value, int adc_index)
 
 static int get_irradiation_mv(int *value, int adc_index)
 {
-    int panel_mv, bias_mv;
+    int panel_mv;
+
     get_adc_mv(&panel_mv, IRRADIATION_ADC_INDEX);
-    get_adc_mv(&bias_mv, BIAS_ADC_INDEX);
-    *value = panel_mv - bias_mv;
+	//TODO: bias should be calibrated to take also into account the op amp offset
+    *value = panel_mv - 1024; //bias de 1024 mV
     return 0;
 }
 
@@ -298,12 +291,6 @@ static void broker_sender_callback(void * args)
     ESP_LOGI(TAG, "Send it to the broker: %s \n", payload);
     mqtt_send_data(MQTT_TOPIC, payload, 0, 1, 0);
     free(payload);
-}
-
-static esp_err_t set_bias(void)
-{
-    dac_output_enable(DAC_CHANNEL);
-    return dac_output_voltage(DAC_CHANNEL, BIAS_DAC_VALUE);
 }
 
 static
@@ -430,12 +417,6 @@ int adc_reader_setup(void)
         return 1;
     }
 
-    // DAC configuration
-    if(set_bias() != ESP_OK) {
-        ESP_LOGE(TAG, "Failed configuring DAC.");
-        return 1;
-    }
-
     // ADCs configuration
     if(adcs_setup() != ESP_OK) {
         ESP_LOGE(TAG, "Failed configuring ADCs.");
@@ -443,8 +424,9 @@ int adc_reader_setup(void)
     }
 
     // timers configuration
-    for(int i = 0; i < N_ADC_MEASURES; i++)
+    for(int i = 0; i < N_ADC_MEASURES; i++) {
         esp_timer_create(&sample_timer_args[i], &sampling_timer[i]);
+	}
 
 	ESP_LOGD(TAG, "Inicialazing broker sender timers\n");
     for(int i = 0; i < N_BROKER_SENDERS; i++)

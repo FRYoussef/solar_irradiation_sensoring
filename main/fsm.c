@@ -14,6 +14,7 @@
 #include <esp_netif.h>
 #include <nvs_flash.h>
 #include <esp_sntp.h>
+#include <esp_timer.h>
 
 #include "fsm.h"
 #include "mqtt.h"
